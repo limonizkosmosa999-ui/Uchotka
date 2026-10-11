@@ -5,23 +5,16 @@ import {
   Building2, 
   Clock, 
   AlertTriangle, 
-  CheckCircle2, 
-  Radio, 
-  ArrowRight, 
-  UserCheck, 
-  BarChart3, 
-  Mail, 
   RefreshCw,
   Eye,
   AlertCircle
 } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
-import { getAllUsers, getCompanies, getTasks, subscribeToTasks, subscribeToRealtimeAny } from '../lib/api';
+import { getAllUsers, getCompanies, getTasks, subscribeToTasks } from '../lib/api';
 import { UserProfile, Company, Task, AccountantStat } from '../types';
 import { getTaskUrgency, formatDateRu } from '../lib/dateUtils';
+import { TaskCard } from '../components/TaskCard';
 
 export const ManagerPage: React.FC = () => {
-  const { user } = useAuth();
   const [accountants, setAccountants] = useState<UserProfile[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -88,31 +81,28 @@ export const ManagerPage: React.FC = () => {
       const accCompanyIds = new Set(accCompanies.map((c) => c.id));
       const accTasks = tasks.filter((t) => accCompanyIds.has(t.company_id));
 
-      const activeTasks = accTasks.filter((t) => t.status !== 'done');
-      const todayCount = activeTasks.filter((t) => getTaskUrgency(t) === 'today').length;
-      const overdueCount = activeTasks.filter((t) => getTaskUrgency(t) === 'overdue').length;
-
-      // Workload calculation: weighted by companies and tasks (base 10 active tasks = 100%)
-      const workloadPercentage = Math.min(
-        100,
-        Math.round((activeTasks.length / 8) * 100)
+      const completedTasks = accTasks.filter(
+        (task) => task.status === 'done' || task.status === 'submitted'
+      ).length;
+      const remainingTasks = accTasks.length - completedTasks;
+      const pendingTasks = accTasks.filter(
+        (task) => task.status !== 'done' && task.status !== 'submitted'
       );
-
-      let status: 'optimal' | 'high' | 'overloaded' = 'optimal';
-      if (overdueCount > 0 || workloadPercentage > 85) {
-        status = 'overloaded';
-      } else if (workloadPercentage > 60 || todayCount > 2) {
-        status = 'high';
-      }
+      const todayCount = pendingTasks.filter((t) => getTaskUrgency(t) === 'today').length;
+      const overdueCount = pendingTasks.filter((t) => getTaskUrgency(t) === 'overdue').length;
+      const completionPercentage = accTasks.length
+        ? Math.round((completedTasks / accTasks.length) * 100)
+        : 0;
 
       return {
         accountant: acc,
         companiesCount: accCompanies.length,
         tasksTodayCount: todayCount,
-        overdueCount: overdueCount,
-        totalActiveTasks: activeTasks.length,
-        workloadPercentage,
-        status,
+        overdueCount,
+        completedTasks,
+        remainingTasks,
+        totalTasks: accTasks.length,
+        completionPercentage,
       };
     });
 
@@ -227,10 +217,10 @@ export const ManagerPage: React.FC = () => {
         <div className="flex items-center justify-between pb-4 mb-4 border-b border-[#EAE3D6]">
           <div>
             <h2 className="text-base font-bold text-[#2B2A25]">
-              Загрузка и показатели сотрудников
+              Выполнение задач сотрудниками
             </h2>
             <p className="text-xs text-[#8C8577]">
-              Распределение компаний, задачи на сегодня и текущий статус загрузки
+              Компании, срочные задачи и прогресс выполнения задач по каждому сотруднику
             </p>
           </div>
           <Link
@@ -249,9 +239,9 @@ export const ManagerPage: React.FC = () => {
                 <th className="pb-3 text-center">Компаний</th>
                 <th className="pb-3 text-center">Задач сегодня</th>
                 <th className="pb-3 text-center">Просрочек</th>
-                <th className="pb-3 text-center">Всего активных</th>
-                <th className="pb-3">Загрузка</th>
-                <th className="pb-3">Статус</th>
+                <th className="pb-3 text-center">Выполнено</th>
+                <th className="pb-3 text-center">Осталось</th>
+                <th className="pb-3">Прогресс выполнения</th>
                 <th className="pb-3 text-right pr-1">Действие</th>
               </tr>
             </thead>
@@ -301,52 +291,35 @@ export const ManagerPage: React.FC = () => {
                       </span>
                     </td>
 
-                    {/* Total Active */}
+                    {/* Completed tasks */}
                     <td className="py-3.5 text-center">
-                      <span className="font-semibold text-sm text-[#2B2A25]">
-                        {stat.totalActiveTasks}
+                      <span className="font-bold text-sm text-[#5FA07A]">
+                        {stat.completedTasks}
                       </span>
                     </td>
 
-                    {/* Workload Progress Bar */}
-                    <td className="py-3.5 w-44">
-                      <div className="flex items-center gap-2">
-                        <div className="w-full bg-[#FAF8F5] border border-[#EAE3D6] rounded-full h-2 overflow-hidden">
-                          <div
-                            className={`h-full rounded-full transition-all duration-500 ${
-                              stat.workloadPercentage > 80
-                                ? 'bg-[#DD6B60]'
-                                : stat.workloadPercentage > 50
-                                ? 'bg-[#DB8A3C]'
-                                : 'bg-[#5FA07A]'
-                            }`}
-                            style={{ width: `${stat.workloadPercentage}%` }}
-                          />
-                        </div>
-                        <span className="text-[11px] font-bold text-[#2B2A25] min-w-[32px]">
-                          {stat.workloadPercentage}%
-                        </span>
-                      </div>
+                    {/* Remaining tasks */}
+                    <td className="py-3.5 text-center">
+                      <span className={`font-bold text-sm ${
+                        stat.remainingTasks > 0 ? 'text-[#DB8A3C]' : 'text-[#8C8577]'
+                      }`}>
+                        {stat.remainingTasks}
+                      </span>
                     </td>
 
-                    {/* Status Badge */}
-                    <td className="py-3.5">
-                      {stat.status === 'optimal' ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-[6px] bg-[#E7F3EB] text-[#5FA07A]">
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#5FA07A]" />
-                          Оптимально
+                    {/* Completed tasks progress */}
+                    <td className="py-3.5 w-44">
+                      <div className="space-y-1.5">
+                        <div className="w-full bg-[#FAF8F5] border border-[#EAE3D6] rounded-full h-2 overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-[#5FA07A] transition-all duration-500"
+                            style={{ width: `${stat.completionPercentage}%` }}
+                          />
+                        </div>
+                        <span className="block text-[11px] text-[#6B6558]">
+                          {stat.completedTasks} из {stat.totalTasks} · {stat.completionPercentage}%
                         </span>
-                      ) : stat.status === 'high' ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-[6px] bg-[#FBEBD9] text-[#DB8A3C]">
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#DB8A3C]" />
-                          Высокая загрузка
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-[6px] bg-[#FCE6E3] text-[#DD6B60]">
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#DD6B60]" />
-                          Перегружен / Долги
-                        </span>
-                      )}
+                      </div>
                     </td>
 
                     {/* Action */}
@@ -366,6 +339,113 @@ export const ManagerPage: React.FC = () => {
           </table>
         </div>
       </div>
+
+      <section className="mb-8">
+        <div className="mb-4">
+          <h2 className="text-base font-bold text-[#2B2A25]">Профили и работа бухгалтеров</h2>
+          <p className="text-xs text-[#8C8577] mt-1">
+            Откройте профиль сотрудника, чтобы посмотреть его компании и задачи.
+          </p>
+        </div>
+        <div className="space-y-3">
+          {accountantStats.map((stat) => {
+            const employeeCompanies = companies.filter(
+              (company) => company.owner_id === stat.accountant.id
+            );
+            const employeeCompanyIds = new Set(employeeCompanies.map((company) => company.id));
+            const employeeTasks = tasks.filter((task) => employeeCompanyIds.has(task.company_id));
+
+            return (
+              <details key={stat.accountant.id} className="bg-white border border-[#EAE3D6] rounded-[10px] group">
+                <summary className="cursor-pointer list-none p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-[10px] bg-[#E7F3EB] text-[#5FA07A] font-bold flex items-center justify-center">
+                      {stat.accountant.full_name.charAt(0)}
+                    </div>
+                    <div>
+                      <span className="block text-sm font-bold text-[#2B2A25]">
+                        {stat.accountant.full_name}
+                      </span>
+                      <span className="block text-xs text-[#8C8577]">{stat.accountant.email}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-[#6B6558]">
+                    <span className="px-2.5 py-1 rounded-[6px] bg-[#FAF8F5]">
+                      {employeeCompanies.length} компаний
+                    </span>
+                    <span className="px-2.5 py-1 rounded-[6px] bg-[#FAF8F5]">
+                      {employeeTasks.length} задач
+                    </span>
+                    <span className="text-[#5FA07A] group-open:rotate-90 transition-transform">›</span>
+                  </div>
+                </summary>
+
+                <div className="border-t border-[#EAE3D6] p-4 space-y-5">
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-wide text-[#8C8577] mb-2">
+                      Профиль сотрудника
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-[#2B2A25]">
+                      <p><span className="text-[#8C8577]">ФИО: </span>{stat.accountant.full_name}</p>
+                      <p><span className="text-[#8C8577]">Email: </span>{stat.accountant.email}</p>
+                      <p><span className="text-[#8C8577]">Дата регистрации: </span>{formatDateRu(stat.accountant.created_at, 'd MMMM yyyy')}</p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-wide text-[#8C8577] mb-2">
+                      Компании и ИП
+                    </h3>
+                    {employeeCompanies.length === 0 ? (
+                      <p className="text-xs text-[#8C8577]">За сотрудником пока не закреплены компании.</p>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {employeeCompanies.map((company) => (
+                          <Link
+                            key={company.id}
+                            to={`/companies/${company.id}`}
+                            className="flex items-center justify-between gap-3 p-3 rounded-[8px] bg-[#FAF8F5] hover:bg-[#E7F3EB] transition"
+                          >
+                            <span className="text-xs font-semibold text-[#2B2A25]">{company.name}</span>
+                            <span className="text-[11px] text-[#8C8577] flex-shrink-0">ИНН {company.inn}</span>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-wide text-[#8C8577] mb-2">
+                      Задачи
+                    </h3>
+                    {employeeTasks.length === 0 ? (
+                      <p className="text-xs text-[#8C8577]">Задач пока нет.</p>
+                    ) : (
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                        {employeeTasks.map((task) => (
+                          <TaskCard
+                            key={task.id}
+                            task={task}
+                            showAccountant
+                            onTaskUpdated={(updated) => {
+                              setTasks((current) =>
+                                current.map((item) => item.id === updated.id ? updated : item)
+                              );
+                            }}
+                            onTaskDeleted={(deletedId) => {
+                              setTasks((current) => current.filter((item) => item.id !== deletedId));
+                            }}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </details>
+            );
+          })}
+        </div>
+      </section>
 
       {/* Overdue Items Alert Section */}
       {overdueTasks.length > 0 && (

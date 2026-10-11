@@ -10,27 +10,35 @@ import {
   Users,
   CheckCircle2,
   ChevronDown,
-  KeyRound,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { getNotifications, markNotificationRead } from '../lib/api';
-import { AppNotification } from '../types';
+import { getAllUsers, getNotifications, markNotificationRead } from '../lib/api';
+import { AppNotification, UserProfile } from '../types';
 import logo from '../assets/hero.png';
 
 export const Navbar: React.FC = () => {
-  const { user, logout, isConfigured } = useAuth();
+  const { user, logout, isConfigured, switchUser } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [showNotifMenu, setShowNotifMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [demoUsers, setDemoUsers] = useState<UserProfile[]>([]);
 
   useEffect(() => {
     if (user) {
       getNotifications(user.id).then(setNotifications);
     }
   }, [user]);
+
+  useEffect(() => {
+    if (!isConfigured) {
+      getAllUsers()
+        .then(setDemoUsers)
+        .catch((error) => console.error('Failed to load demo users:', error));
+    }
+  }, [isConfigured]);
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
@@ -44,6 +52,15 @@ export const Navbar: React.FC = () => {
   const handleLogout = async () => {
     await logout();
     navigate('/login');
+  };
+
+  const handleSwitchUser = async (userId: string) => {
+    try {
+      await switchUser(userId);
+      setShowUserMenu(false);
+    } catch (error) {
+      console.error('Failed to switch demo user:', error);
+    }
   };
 
   const isManager = user?.role === 'manager';
@@ -232,15 +249,27 @@ export const Navbar: React.FC = () => {
                     }`}>
                       {isManager ? '👔 Руководитель агентства' : '🧾 Бухгалтер'}
                     </span>
-                    {/* Show invite code for managers */}
-                    {isManager && !isConfigured && (
-                      <div className="mt-2 flex items-center gap-1.5 text-xs">
-                        <KeyRound className="w-3.5 h-3.5 text-[#C47F2A]" />
-                        <span className="text-[#6B6558]">Код для бухгалтеров:</span>
-                        <code className="font-bold text-[#C47F2A] bg-[#F6EFDE] px-1.5 py-0.5 rounded">УЧЁТКА-2026</code>
-                      </div>
-                    )}
                   </div>
+
+                  {!isConfigured && demoUsers.length > 0 && (
+                    <div className="px-4 py-3 border-b border-[#EAE3D6]">
+                      <label htmlFor="demo-user-switcher" className="block text-xs font-semibold text-[#6B6558] mb-1.5">
+                        Смотреть как
+                      </label>
+                      <select
+                        id="demo-user-switcher"
+                        value={user?.id || ''}
+                        onChange={(event) => handleSwitchUser(event.target.value)}
+                        className="w-full px-2.5 py-2 text-xs border border-[#EAE3D6] rounded-[8px] bg-white text-[#2B2A25]"
+                      >
+                        {demoUsers.map((demoUser) => (
+                          <option key={demoUser.id} value={demoUser.id}>
+                            {demoUser.role === 'manager' ? 'Руководитель' : 'Бухгалтер'} — {demoUser.full_name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                 <Link
                     to="/settings"

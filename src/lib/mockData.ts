@@ -1,7 +1,7 @@
 import { Company, TaxType, Task, UserProfile, AppNotification } from '../types';
 
 // ДЕМО-КОДЫ ДЛЯ ВХОДА:
-// Руководитель: manager@uchotka.agency / demo1234  (код приглашения для бухгалтеров: УЧЁТКА-2026)
+// Руководитель: manager@uchotka.agency / demo1234
 // Бухгалтер 1:  bakyt@uchotka.agency  / demo1234
 // Бухгалтер 2:  elena@uchotka.agency  / demo1234
 // Бухгалтер 3:  ulan@uchotka.agency   / demo1234
@@ -12,7 +12,6 @@ export const MOCK_USERS: UserProfile[] = [
     role: 'manager',
     full_name: 'Асель Токтогулова',
     notification_email: 'manager@uchotka.agency',
-    invite_code: 'УЧЁТКА-2026',
     created_at: '2026-01-10T08:00:00Z',
   },
   {
@@ -21,7 +20,6 @@ export const MOCK_USERS: UserProfile[] = [
     role: 'accountant',
     full_name: 'Бакыт Муратов',
     notification_email: 'bakyt@uchotka.agency',
-    manager_id: 'user-manager-1',
     created_at: '2026-01-15T09:00:00Z',
   },
   {
@@ -30,7 +28,6 @@ export const MOCK_USERS: UserProfile[] = [
     role: 'accountant',
     full_name: 'Елена Ким',
     notification_email: 'elena@uchotka.agency',
-    manager_id: 'user-manager-1',
     created_at: '2026-02-01T10:00:00Z',
   },
   {
@@ -39,7 +36,6 @@ export const MOCK_USERS: UserProfile[] = [
     role: 'accountant',
     full_name: 'Улан Джумабеков',
     notification_email: 'ulan@uchotka.agency',
-    manager_id: 'user-manager-1',
     created_at: '2026-03-01T09:30:00Z',
   },
 ];

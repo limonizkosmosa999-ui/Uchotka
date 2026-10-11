@@ -7,7 +7,6 @@ import {
   User,
   ArrowRight,
   ShieldCheck,
-  KeyRound,
   Eye,
   EyeOff,
   ChevronDown,
@@ -15,8 +14,23 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
+function getAuthErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : '';
+  const normalizedMessage = message.toLowerCase();
+
+  if (
+    normalizedMessage.includes('email rate limit exceeded') ||
+    normalizedMessage.includes('over_email_send_rate_limit') ||
+    normalizedMessage.includes('email rate limit')
+  ) {
+    return 'Supabase временно ограничил отправку писем. Не отправляйте повторные запросы подряд. Если аккаунт уже создан, переключитесь на «Вход»; иначе подождите и проверьте настройки лимитов или SMTP в панели Supabase.';
+  }
+
+  return message || 'Ошибка. Проверьте введённые данные.';
+}
+
 export const LoginPage: React.FC = () => {
-  const { login, register, isConfigured } = useAuth();
+  const { login, register, isConfigured, configurationError } = useAuth();
   const navigate = useNavigate();
 
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -25,7 +39,6 @@ export const LoginPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [fullName, setFullName] = useState('');
   const [role, setRole] = useState<'accountant' | 'manager'>('accountant');
-  const [inviteCode, setInviteCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showDemoHint, setShowDemoHint] = useState(true);
@@ -36,20 +49,14 @@ export const LoginPage: React.FC = () => {
     setLoading(true);
     try {
       if (mode === 'login') {
-        const user = await login(email, password);
-        navigate(user.role === 'manager' ? '/manager' : '/dashboard');
+        await login(email, password);
+        navigate('/dashboard');
       } else {
-        const user = await register(
-          email,
-          password,
-          fullName,
-          role,
-          role === 'accountant' ? inviteCode : undefined
-        );
-        navigate(user.role === 'manager' ? '/manager' : '/dashboard');
+        await register(email, password, fullName, role);
+        navigate('/dashboard');
       }
-    } catch (err: any) {
-      setError(err.message || 'Ошибка. Проверьте введённые данные.');
+    } catch (err: unknown) {
+      setError(getAuthErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -74,7 +81,21 @@ export const LoginPage: React.FC = () => {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md space-y-4">
         {/* Demo credentials hint */}
-        {!isConfigured && (
+        {configurationError && (
+          <div
+            role="alert"
+            className="bg-[#FCE6E3] border border-[#DD6B60]/30 rounded-2xl px-5 py-4 text-sm text-[#C0392B]"
+          >
+            <p className="font-semibold">Неверный ключ Supabase для браузера</p>
+            <p className="mt-1">{configurationError}</p>
+            <p className="mt-2">
+              Замените значение <code>VITE_SUPABASE_ANON_KEY</code> в локальном <code>.env</code> на публичный ключ
+              anon/publishable из настроек API Supabase, затем перезапустите приложение.
+            </p>
+          </div>
+        )}
+
+        {!isConfigured && !configurationError && (
           <div className="bg-white border border-[#C4B99A] rounded-2xl overflow-hidden">
             <button
               type="button"
@@ -119,11 +140,6 @@ export const LoginPage: React.FC = () => {
                     <div className="flex items-center gap-2 text-sm">
                       <Lock className="w-4 h-4 text-[#8C8577]" />
                       <code className="text-[#1E1D19] font-semibold">demo1234</code>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-[#6B6558] mt-1">
-                      <KeyRound className="w-3.5 h-3.5 text-[#C47F2A]" />
-                      <span>Код приглашения для новых бухгалтеров:</span>
-                      <code className="font-bold text-[#C47F2A] bg-[#F6EFDE] px-1.5 py-0.5 rounded">УЧЁТКА-2026</code>
                     </div>
                   </div>
                 </div>
@@ -238,28 +254,6 @@ export const LoginPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Invite code — only for accountant */}
-                {role === 'accountant' && (
-                  <div>
-                    <label className="block text-sm font-semibold text-[#1E1D19] mb-1.5">
-                      Код приглашения от руководителя
-                    </label>
-                    <div className="relative">
-                      <KeyRound className="w-5 h-5 text-[#C47F2A] absolute left-3.5 top-1/2 -translate-y-1/2" />
-                      <input
-                        type="text"
-                        required
-                        value={inviteCode}
-                        onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-                        placeholder="УЧЁТКА-2026"
-                        className="w-full pl-11 pr-4 py-3 text-sm border border-[#D4C9B0] rounded-xl focus:outline-none focus:border-[#C47F2A] focus:ring-2 focus:ring-[#C47F2A]/10 bg-white font-mono text-[#1E1D19] tracking-widest placeholder-[#A89F92]"
-                      />
-                    </div>
-                    <p className="text-xs text-[#8C8577] mt-1.5">
-                      Запросите этот код у вашего руководителя — он есть в настройках его аккаунта
-                    </p>
-                  </div>
-                )}
               </>
             )}
 
@@ -309,7 +303,7 @@ export const LoginPage: React.FC = () => {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || Boolean(configurationError)}
               className="w-full py-3.5 rounded-xl bg-[#4A8C68] text-white text-sm font-bold hover:bg-[#3D7557] transition disabled:opacity-50 mt-2"
             >
               {loading

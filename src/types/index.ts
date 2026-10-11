@@ -6,8 +6,6 @@ export interface UserProfile {
   role: UserRole;
   full_name: string;
   notification_email?: string | null;
-  manager_id?: string | null;   // для бухгалтера: ссылка на руководителя
-  invite_code?: string | null;  // для руководителя: уникальный код приглашения
   created_at?: string;
 }
 
@@ -50,6 +48,22 @@ export interface Task {
   company?: Company;
 }
 
+export interface CompanyDocument {
+  id: string;
+  company_id: string;
+  created_by: string;
+  title: string;
+  file_name: string;
+  storage_path: string;
+  mime_type: string;
+  file_size: number;
+  received_address: string;
+  received_at: string;
+  notes?: string | null;
+  created_at?: string;
+  file_data_url?: string;
+}
+
 export interface AppNotification {
   id: string;
   user_id: string;
@@ -67,7 +81,8 @@ export interface AccountantStat {
   companiesCount: number;
   tasksTodayCount: number;
   overdueCount: number;
-  totalActiveTasks: number;
-  workloadPercentage: number;
-  status: 'optimal' | 'high' | 'overloaded';
+  completedTasks: number;
+  remainingTasks: number;
+  totalTasks: number;
+  completionPercentage: number;
 }

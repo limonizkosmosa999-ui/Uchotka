@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Calendar, 
@@ -12,7 +12,8 @@ import {
   Trash2, 
   FileText,
   User,
-  ArrowRight
+  ArrowRight,
+  X,
 } from 'lucide-react';
 import { Task, TaskStatus } from '../types';
 import { formatDateRu, getUrgencyBadge, getDaysLeftText } from '../lib/dateUtils';
@@ -34,10 +35,27 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   const [loading, setLoading] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [isEditingWait, setIsEditingWait] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
   const [waitDate, setWaitDate] = useState(task.wait_until || '');
 
   const badge = getUrgencyBadge(task);
   const daysLeft = getDaysLeftText(task.due_date);
+  const statusLabel: Record<TaskStatus, string> = {
+    in_progress: 'В работе',
+    submitted: 'Отправлено',
+    waiting: 'Ожидает ответа',
+    done: 'Завершено',
+  };
+
+  useEffect(() => {
+    if (!showDetails) return;
+
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setShowDetails(false);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [showDetails]);
 
   const handleStatusChange = async (newStatus: TaskStatus) => {
     setLoading(true);
@@ -87,6 +105,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   };
 
   return (
+    <>
     <div
       className={`relative bg-white border border-[#EAE3D6] rounded-[10px] p-4 transition hover:border-[#C7A96E] ${
         loading ? 'opacity-60 pointer-events-none' : ''
@@ -177,9 +196,25 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       </div>
 
       {/* Task Document Title */}
-      <h3 className="text-sm font-semibold text-[#2B2A25] leading-snug mb-1.5">
-        {task.doc_type}
-      </h3>
+      <div className="mb-1.5">
+        <h3 className="text-sm font-semibold text-[#2B2A25] leading-snug">
+          <button
+            type="button"
+            onClick={() => setShowDetails(true)}
+            className="text-left hover:text-[#5FA07A] transition"
+            aria-label={`Открыть задачу: ${task.doc_type}`}
+          >
+            {task.doc_type}
+          </button>
+        </h3>
+        <button
+          type="button"
+          onClick={() => setShowDetails(true)}
+          className="text-[11px] text-[#5FA07A] hover:underline mt-0.5"
+        >
+          Открыть задачу
+        </button>
+      </div>
 
       {/* Company Link */}
       {task.company && (
@@ -282,5 +317,101 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         )}
       </div>
     </div>
+    {showDetails && (
+      <div
+        className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center p-4"
+        onMouseDown={(event) => {
+          if (event.target === event.currentTarget) setShowDetails(false);
+        }}
+      >
+        <section
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={`task-details-title-${task.id}`}
+          className="w-full max-w-xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl"
+        >
+          <div className="flex items-start justify-between gap-4 px-6 py-5 border-b border-[#EAE3D6]">
+            <div>
+              <span
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] text-xs font-medium mb-3"
+                style={{ backgroundColor: badge.bgColor, color: badge.textColor }}
+              >
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: badge.dotColor }} />
+                {badge.label}
+              </span>
+              <h2 id={`task-details-title-${task.id}`} className="text-lg font-bold text-[#2B2A25] leading-snug">
+                {task.doc_type}
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowDetails(false)}
+              className="p-2 rounded-lg text-[#8C8577] hover:bg-[#FAF8F5] hover:text-[#2B2A25]"
+              aria-label="Закрыть задачу"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="px-6 py-5 space-y-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="block text-xs text-[#8C8577] mb-1">Срок выполнения</span>
+                <span className="font-semibold text-[#2B2A25]">
+                  {formatDateRu(task.due_date, 'd MMMM yyyy')}
+                </span>
+              </div>
+              <div>
+                <span className="block text-xs text-[#8C8577] mb-1">Статус</span>
+                <span className="font-semibold text-[#2B2A25]">{statusLabel[task.status]}</span>
+              </div>
+              {task.status === 'waiting' && task.wait_until && (
+                <div>
+                  <span className="block text-xs text-[#8C8577] mb-1">Ожидаемый ответ до</span>
+                  <span className="font-semibold text-[#2B2A25]">
+                    {formatDateRu(task.wait_until, 'd MMMM yyyy')}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {task.company && (
+              <div>
+                <span className="block text-xs text-[#8C8577] mb-1">Компания</span>
+                <Link
+                  to={`/companies/${task.company.id}`}
+                  onClick={() => setShowDetails(false)}
+                  className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#5FA07A] hover:underline"
+                >
+                  <Building className="w-4 h-4" />
+                  {task.company.name}
+                  <span className="text-xs font-normal text-[#8C8577]">ИНН: {task.company.inn}</span>
+                </Link>
+              </div>
+            )}
+
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-[#8C8577] mb-2">
+                Описание задачи
+              </h3>
+              <div className="min-h-24 whitespace-pre-wrap break-words rounded-xl border border-[#EAE3D6] bg-[#FAF8F5] p-4 text-sm leading-relaxed text-[#2B2A25]">
+                {task.notes?.trim() || 'Описание задачи не добавлено.'}
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowDetails(false)}
+                className="px-4 py-2 rounded-lg bg-[#5FA07A] text-sm font-semibold text-white hover:bg-[#528E6B]"
+              >
+                Закрыть
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
+    )}
+    </>
   );
 };

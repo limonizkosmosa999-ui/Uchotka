@@ -1,5 +1,5 @@
-import { supabase, isSupabaseConfigured } from './supabase';
-import { Company, TaxType, Task, UserProfile, AppNotification } from '../types';
+import { supabase, isSupabaseConfigured, supabaseConfigError } from './supabase';
+import { Company, CompanyDocument, TaxType, Task, UserProfile, AppNotification } from '../types';
 import { MOCK_USERS, MOCK_TAX_TYPES, MOCK_COMPANIES, MOCK_TASKS, MOCK_NOTIFICATIONS } from './mockData';
 
 // Local storage keys for fallback/demo state
@@ -8,7 +8,17 @@ const LS_USERS = LS_STORAGE_PREFIX + 'users';
 const LS_COMPANIES = LS_STORAGE_PREFIX + 'companies';
 const LS_TASKS = LS_STORAGE_PREFIX + 'tasks';
 const LS_NOTIFICATIONS = LS_STORAGE_PREFIX + 'notifications';
+const LS_COMPANY_DOCUMENTS = LS_STORAGE_PREFIX + 'company_documents';
 const LS_CURRENT_USER = LS_STORAGE_PREFIX + 'current_user';
+const COMPANY_DOCUMENT_BUCKET = 'company-documents';
+const MAX_COMPANY_DOCUMENT_SIZE = 10 * 1024 * 1024;
+const MAX_MOCK_DOCUMENT_SIZE = 2 * 1024 * 1024;
+const ALLOWED_DOCUMENT_TYPES = new Set([
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+]);
 
 // Initialize mock database in localStorage if needed
 function initMockStorage() {
@@ -23,6 +33,9 @@ function initMockStorage() {
   }
   if (!localStorage.getItem(LS_NOTIFICATIONS)) {
     localStorage.setItem(LS_NOTIFICATIONS, JSON.stringify(MOCK_NOTIFICATIONS));
+  }
+  if (!localStorage.getItem(LS_COMPANY_DOCUMENTS)) {
+    localStorage.setItem(LS_COMPANY_DOCUMENTS, JSON.stringify([]));
   }
   if (!localStorage.getItem(LS_CURRENT_USER)) {
     // Default to the first accountant for instant preview
@@ -48,6 +61,8 @@ export function emitMockRealtimeEvent(table: string, eventType: string, record: 
 // -------------------------------------------------------------
 
 export async function getCurrentUser(): Promise<UserProfile | null> {
+  if (supabaseConfigError) throw new Error(supabaseConfigError);
+
   if (isSupabaseConfigured) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return null;
@@ -87,6 +102,8 @@ export async function switchMockUser(userId: string): Promise<UserProfile | null
 }
 
 export async function loginWithEmail(email: string, password: string): Promise<UserProfile> {
+  if (supabaseConfigError) throw new Error(supabaseConfigError);
+
   if (isSupabaseConfigured) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
@@ -114,28 +131,11 @@ export async function registerWithEmail(
   email: string,
   password: string,
   fullName: string,
-  role: 'accountant' | 'manager' = 'accountant',
-  inviteCode?: string
+  role: 'accountant' | 'manager' = 'accountant'
 ): Promise<UserProfile> {
-  if (isSupabaseConfigured) {
-    // Validate invite code for accountants
-    let managerId: string | null = null;
-    if (role === 'accountant') {
-      if (!inviteCode?.trim()) {
-        throw new Error('Для регистрации бухгалтера необходим код приглашения от руководителя');
-      }
-      // Find manager by invite_code in users table
-      const { data: mgr, error: mgrErr } = await supabase
-        .from('users')
-        .select('id')
-        .eq('invite_code', inviteCode.trim())
-        .single();
-      if (mgrErr || !mgr) {
-        throw new Error('Неверный код приглашения. Запросите актуальный код у руководителя.');
-      }
-      managerId = mgr.id;
-    }
+  if (supabaseConfigError) throw new Error(supabaseConfigError);
 
+  if (isSupabaseConfigured) {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -145,6 +145,18 @@ export async function registerWithEmail(
     });
     if (error) throw error;
     if (!data.user) throw new Error('Ошибка регистрации');
+    if (!data.session) {
+      throw new Error(
+        'Регистрация не завершила вход: Supabase ожидает подтверждение email. Для тестового приложения отключите Confirm email в настройках Authentication → Providers → Email проекта Supabase, затем повторите регистрацию.'
+      );
+    }
+
+    const { data: savedProfile, error: profileError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', data.user.id)
+      .maybeSingle();
+    if (!profileError && savedProfile) return savedProfile;
 
     const profile: UserProfile = {
       id: data.user.id,
@@ -152,10 +164,8 @@ export async function registerWithEmail(
       role,
       full_name: fullName,
       notification_email: email,
-      manager_id: managerId,
       created_at: new Date().toISOString(),
     };
-    await supabase.from('users').upsert(profile);
     return profile;
   }
 
@@ -165,29 +175,12 @@ export async function registerWithEmail(
     throw new Error('Пользователь с таким email уже существует');
   }
 
-  // Validate invite code for accountants in mock mode
-  let managerId: string | null = null;
-  if (role === 'accountant') {
-    if (!inviteCode?.trim()) {
-      throw new Error('Для регистрации бухгалтера необходим код приглашения от руководителя');
-    }
-    const manager = users.find(
-      (u) => u.role === 'manager' && u.invite_code?.toUpperCase() === inviteCode.trim().toUpperCase()
-    );
-    if (!manager) {
-      throw new Error('Неверный код приглашения. Запросите код у вашего руководителя.');
-    }
-    managerId = manager.id;
-  }
-
   const newUser: UserProfile = {
     id: `user-${Date.now()}`,
     email,
     role,
     full_name: fullName,
     notification_email: email,
-    manager_id: managerId,
-    invite_code: role === 'manager' ? `КОД-${Date.now().toString(36).toUpperCase()}` : null,
     created_at: new Date().toISOString(),
   };
 
@@ -264,6 +257,166 @@ export async function getTaxTypes(): Promise<TaxType[]> {
 // -------------------------------------------------------------
 // COMPANIES
 // -------------------------------------------------------------
+
+export function getCompanyDocumentSizeLimit(): number {
+  return isSupabaseConfigured ? MAX_COMPANY_DOCUMENT_SIZE : MAX_MOCK_DOCUMENT_SIZE;
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        resolve(reader.result);
+      } else {
+        reject(new Error('Не удалось прочитать файл документа'));
+      }
+    };
+    reader.onerror = () => reject(reader.error || new Error('Не удалось прочитать файл документа'));
+    reader.readAsDataURL(file);
+  });
+}
+
+function getDocumentMimeType(file: File): string {
+  if (ALLOWED_DOCUMENT_TYPES.has(file.type)) return file.type;
+
+  const extension = file.name.split('.').pop()?.toLowerCase();
+  const mimeByExtension: Record<string, string> = {
+    pdf: 'application/pdf',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    png: 'image/png',
+    webp: 'image/webp',
+  };
+  return mimeByExtension[extension || ''] || '';
+}
+
+export async function getCompanyDocuments(companyId: string): Promise<CompanyDocument[]> {
+  if (isSupabaseConfigured) {
+    const { data, error } = await supabase
+      .from('company_documents')
+      .select('*')
+      .eq('company_id', companyId)
+      .order('received_at', { ascending: false })
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data || []) as CompanyDocument[];
+  }
+
+  const documents: CompanyDocument[] = JSON.parse(
+    localStorage.getItem(LS_COMPANY_DOCUMENTS) || '[]'
+  );
+  return documents
+    .filter((document) => document.company_id === companyId)
+    .sort((a, b) => b.received_at.localeCompare(a.received_at));
+}
+
+export async function getCompanyDocumentUrl(document: CompanyDocument): Promise<string> {
+  if (document.file_data_url) return document.file_data_url;
+
+  if (!isSupabaseConfigured) {
+    throw new Error('Файл документа недоступен в демо-хранилище');
+  }
+
+  const { data, error } = await supabase.storage
+    .from(COMPANY_DOCUMENT_BUCKET)
+    .createSignedUrl(document.storage_path, 60 * 60);
+  if (error) throw error;
+  return data.signedUrl;
+}
+
+export async function createCompanyDocument(input: {
+  companyId: string;
+  createdBy: string;
+  title: string;
+  receivedAddress: string;
+  receivedAt: string;
+  notes?: string;
+  file: File;
+}): Promise<CompanyDocument> {
+  const mimeType = getDocumentMimeType(input.file);
+  if (!mimeType) {
+    throw new Error('Можно загрузить только PDF, JPEG, PNG или WebP');
+  }
+
+  const maxFileSize = getCompanyDocumentSizeLimit();
+  if (input.file.size <= 0 || input.file.size > maxFileSize) {
+    throw new Error(`Размер файла должен быть не больше ${Math.floor(maxFileSize / (1024 * 1024))} МБ`);
+  }
+
+  const fileName = input.file.name.trim() || 'document';
+  const title = input.title.trim();
+  const receivedAddress = input.receivedAddress.trim();
+  if (!title || !receivedAddress || !input.receivedAt) {
+    throw new Error('Укажите название документа, адрес и дату получения');
+  }
+
+  if (!isSupabaseConfigured) {
+    const documents: CompanyDocument[] = JSON.parse(
+      localStorage.getItem(LS_COMPANY_DOCUMENTS) || '[]'
+    );
+    const newDocument: CompanyDocument = {
+      id: `document-${crypto.randomUUID()}`,
+      company_id: input.companyId,
+      created_by: input.createdBy,
+      title,
+      file_name: fileName,
+      storage_path: `mock/${input.companyId}/${crypto.randomUUID()}-${fileName}`,
+      mime_type: mimeType,
+      file_size: input.file.size,
+      received_address: receivedAddress,
+      received_at: input.receivedAt,
+      notes: input.notes?.trim() || null,
+      created_at: new Date().toISOString(),
+      file_data_url: await readFileAsDataUrl(input.file),
+    };
+    documents.push(newDocument);
+    localStorage.setItem(LS_COMPANY_DOCUMENTS, JSON.stringify(documents));
+    emitMockRealtimeEvent('company_documents', 'INSERT', newDocument);
+    return newDocument;
+  }
+
+  const safeFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const storagePath = `${input.companyId}/${crypto.randomUUID()}-${safeFileName}`;
+  const { error: uploadError } = await supabase.storage
+    .from(COMPANY_DOCUMENT_BUCKET)
+    .upload(storagePath, input.file, {
+      contentType: mimeType,
+      upsert: false,
+    });
+  if (uploadError) throw uploadError;
+
+  const { data, error: insertError } = await supabase
+    .from('company_documents')
+    .insert({
+      company_id: input.companyId,
+      created_by: input.createdBy,
+      title,
+      file_name: fileName,
+      storage_path: storagePath,
+      mime_type: mimeType,
+      file_size: input.file.size,
+      received_address: receivedAddress,
+      received_at: input.receivedAt,
+      notes: input.notes?.trim() || null,
+    })
+    .select('*')
+    .single();
+
+  if (insertError) {
+    const { error: cleanupError } = await supabase.storage
+      .from(COMPANY_DOCUMENT_BUCKET)
+      .remove([storagePath]);
+    if (cleanupError) {
+      throw new Error(
+        `Не удалось сохранить сведения о документе: ${insertError.message}. Не удалось удалить загруженный файл: ${cleanupError.message}`
+      );
+    }
+    throw insertError;
+  }
+
+  return data as CompanyDocument;
+}
 
 export async function getCompanies(ownerId?: string): Promise<Company[]> {
   if (isSupabaseConfigured) {

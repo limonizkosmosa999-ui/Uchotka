@@ -14,8 +14,7 @@ import { SettingsPage } from './pages/SettingsPage';
 // Protected Route Wrapper
 const ProtectedRoute: React.FC<{
   children: React.ReactNode;
-  requiredRole?: 'manager' | 'accountant';
-}> = ({ children, requiredRole }) => {
+}> = ({ children }) => {
   const { user, loading } = useAuth();
 
   if (loading) {
@@ -28,10 +27,6 @@ const ProtectedRoute: React.FC<{
 
   if (!user) {
     return <Navigate to="/login" replace />;
-  }
-
-  if (requiredRole === 'manager' && user.role !== 'manager') {
-    return <Navigate to="/dashboard" replace />;
   }
 
   return (
@@ -58,11 +53,7 @@ const RootRedirect: React.FC = () => {
     return <Navigate to="/login" replace />;
   }
 
-  return user.role === 'manager' ? (
-    <Navigate to="/manager" replace />
-  ) : (
-    <Navigate to="/dashboard" replace />
-  );
+  return <Navigate to="/dashboard" replace />;
 };
 
 export function App() {
@@ -120,7 +111,7 @@ export function App() {
           <Route
             path="/manager"
             element={
-              <ProtectedRoute requiredRole="manager">
+              <ProtectedRoute>
                 <ManagerPage />
               </ProtectedRoute>
             }

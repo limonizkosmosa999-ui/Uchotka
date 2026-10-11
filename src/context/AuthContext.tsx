@@ -1,14 +1,15 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { UserProfile } from '../types';
 import { getCurrentUser, loginWithEmail, registerWithEmail, logoutUser, switchMockUser } from '../lib/api';
-import { isSupabaseConfigured, supabase } from '../lib/supabase';
+import { isSupabaseConfigured, supabase, supabaseConfigError } from '../lib/supabase';
 
 interface AuthContextType {
   user: UserProfile | null;
   loading: boolean;
   isConfigured: boolean;
+  configurationError: string | null;
   login: (email: string, password: string) => Promise<UserProfile>;
-  register: (email: string, password: string, fullName: string, role?: 'accountant' | 'manager', inviteCode?: string) => Promise<UserProfile>;
+  register: (email: string, password: string, fullName: string, role?: 'accountant' | 'manager') => Promise<UserProfile>;
   logout: () => Promise<void>;
   switchUser: (userId: string) => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -60,10 +61,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const register = async (email: string, pass: string, fullName: string, role: 'accountant' | 'manager' = 'accountant', inviteCode?: string) => {
+  const register = async (email: string, pass: string, fullName: string, role: 'accountant' | 'manager' = 'accountant') => {
     setLoading(true);
     try {
-      const u = await registerWithEmail(email, pass, fullName, role, inviteCode);
+      const u = await registerWithEmail(email, pass, fullName, role);
       setUser(u);
       return u;
     } finally {
@@ -97,6 +98,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         loading,
         isConfigured: isSupabaseConfigured,
+        configurationError: supabaseConfigError,
         login,
         register,
         logout,

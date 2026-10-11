@@ -4,20 +4,17 @@ import {
   Building, 
   ArrowLeft, 
   PlusCircle, 
-  Calendar, 
   FileText, 
   User, 
   Percent, 
   CheckCircle2, 
   Clock, 
-  AlertCircle, 
-  Trash2, 
-  Edit3,
-  ExternalLink
+  Trash2
 } from 'lucide-react';
 import { getCompanyById, getTasks, deleteCompany } from '../lib/api';
 import { Company, Task } from '../types';
 import { TaskCard } from '../components/TaskCard';
+import { CompanyDocumentsPanel } from '../components/CompanyDocumentsPanel';
 import { formatDateRu } from '../lib/dateUtils';
 import { useAuth } from '../context/AuthContext';
 
@@ -29,9 +26,7 @@ export const CompanyDetailPage: React.FC = () => {
   const [company, setCompany] = useState<Company | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
-
-  const isManager = user?.role === 'manager';
+  const [activeTab, setActiveTab] = useState<'active' | 'history' | 'documents'>('active');
 
   const loadCompanyData = async () => {
     if (!id) return;
@@ -179,7 +174,7 @@ export const CompanyDetailPage: React.FC = () => {
       {/* Stats Summary Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 mb-6">
         <div className="bg-white border border-[#EAE3D6] rounded-[10px] p-3.5 text-center">
-          <span className="text-xs text-[#8C8577] block">Всего документов</span>
+          <span className="text-xs text-[#8C8577] block">Всего задач</span>
           <span className="text-lg font-bold text-[#2B2A25]">{tasks.length}</span>
         </div>
         <div className="bg-white border border-[#EAE3D6] rounded-[10px] p-3.5 text-center">
@@ -198,8 +193,8 @@ export const CompanyDetailPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Tabs: Active Tasks vs History */}
-      <div className="border-b border-[#EAE3D6] mb-6 flex gap-6">
+      {/* Tabs: Tasks, history and received company documents */}
+      <div className="border-b border-[#EAE3D6] mb-6 flex flex-wrap gap-6">
         <button
           onClick={() => setActiveTab('active')}
           className={`pb-3 text-sm font-semibold border-b-2 transition flex items-center gap-2 ${
@@ -222,10 +217,22 @@ export const CompanyDetailPage: React.FC = () => {
           <CheckCircle2 className="w-4 h-4" />
           <span>История сдачи и архив ({historyTasks.length})</span>
         </button>
+        <button
+          onClick={() => setActiveTab('documents')}
+          className={`pb-3 text-sm font-semibold border-b-2 transition flex items-center gap-2 ${
+            activeTab === 'documents'
+              ? 'border-[#5FA07A] text-[#5FA07A]'
+              : 'border-transparent text-[#8C8577] hover:text-[#2B2A25]'
+          }`}
+        >
+          <FileText className="w-4 h-4" />
+          <span>Документы</span>
+        </button>
       </div>
 
-      {/* Tasks Grid */}
-      {activeTab === 'active' ? (
+      {activeTab === 'documents' ? (
+        user && <CompanyDocumentsPanel companyId={company.id} userId={user.id} />
+      ) : activeTab === 'active' ? (
         activeTasks.length === 0 ? (
           <div className="bg-white border border-[#EAE3D6] rounded-[10px] p-8 text-center text-xs text-[#8C8577]">
             <CheckCircle2 className="w-8 h-8 text-[#5FA07A] mx-auto mb-2 opacity-60" />
