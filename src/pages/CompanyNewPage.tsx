@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Building, ArrowLeft, Percent, Check, AlertCircle, Info, User } from 'lucide-react';
+import { Building, ArrowLeft, Percent, Check, AlertCircle } from 'lucide-react';
 import { getTaxTypes, createCompany, getAllUsers } from '../lib/api';
 import { TaxType, ClientType, UserProfile } from '../types';
 import { useAuth } from '../context/AuthContext';
@@ -18,6 +18,8 @@ export const CompanyNewPage: React.FC = () => {
   const [clientType, setClientType] = useState<ClientType>('ОсОО');
   const [taxTypeId, setTaxTypeId] = useState<string>('');
   const [ownerId, setOwnerId] = useState<string>(user?.id || '');
+  const [taxOfficeDistrict, setTaxOfficeDistrict] = useState('');
+  const [curatorId, setCuratorId] = useState(user?.role === 'accountant' ? user.id : '');
   const [notes, setNotes] = useState('');
 
   const [loading, setLoading] = useState(false);
@@ -66,6 +68,8 @@ export const CompanyNewPage: React.FC = () => {
         inn: inn.trim(),
         client_type: clientType,
         tax_type_id: taxTypeId,
+        tax_office_district: taxOfficeDistrict.trim() || null,
+        curator_id: curatorId || null,
         owner_id: ownerId || user?.id || '',
         notes: notes.trim() || null,
       });
@@ -114,36 +118,60 @@ export const CompanyNewPage: React.FC = () => {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Client Type Selector (ИП / ОсОО) */}
+          {/* Client Type Selector */}
           <div>
             <label className="block text-xs font-semibold text-[#2B2A25] mb-2">
               Тип клиента (Организационно-правовая форма)
             </label>
             <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setClientType('ОсОО')}
-                className={`p-3 rounded-[10px] border text-xs font-medium text-center transition flex items-center justify-center gap-2 ${
-                  clientType === 'ОсОО'
-                    ? 'bg-[#FBEBD9] border-[#DB8A3C] text-[#DB8A3C] font-semibold'
-                    : 'border-[#EAE3D6] text-[#2B2A25] hover:bg-[#FAF8F5]'
-                }`}
+              {(['ИП', 'ОсОО', 'ОО', 'ОФ'] as ClientType[]).map((type) => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => setClientType(type)}
+                  className={`p-3 rounded-[10px] border text-xs font-medium text-center transition flex items-center justify-center gap-2 ${
+                    clientType === type
+                      ? 'bg-[#FBEBD9] border-[#DB8A3C] text-[#DB8A3C] font-semibold'
+                      : 'border-[#EAE3D6] text-[#2B2A25] hover:bg-[#FAF8F5]'
+                  }`}
+                >
+                  <span>{type}</span>
+                  {clientType === type && <Check className="w-3.5 h-3.5" />}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-[#2B2A25] mb-1">
+                Район налоговой
+              </label>
+              <input
+                type="text"
+                value={taxOfficeDistrict}
+                onChange={(e) => setTaxOfficeDistrict(e.target.value)}
+                placeholder="Например, Первомайский"
+                className="w-full px-3 py-2 text-xs bg-white border border-[#EAE3D6] rounded-[8px] focus:outline-none focus:border-[#5FA07A]"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-[#2B2A25] mb-1">
+                Сопровождающий куратор
+              </label>
+              <select
+                value={curatorId}
+                onChange={(e) => setCuratorId(e.target.value)}
+                className="w-full px-3 py-2 text-xs bg-white border border-[#EAE3D6] rounded-[8px] focus:outline-none focus:border-[#5FA07A]"
               >
-                <span>ОсОО (Юридическое лицо)</span>
-                {clientType === 'ОсОО' && <Check className="w-3.5 h-3.5" />}
-              </button>
-              <button
-                type="button"
-                onClick={() => setClientType('ИП')}
-                className={`p-3 rounded-[10px] border text-xs font-medium text-center transition flex items-center justify-center gap-2 ${
-                  clientType === 'ИП'
-                    ? 'bg-[#F6EFDE] border-[#C7A96E] text-[#C7A96E] font-semibold'
-                    : 'border-[#EAE3D6] text-[#2B2A25] hover:bg-[#FAF8F5]'
-                }`}
-              >
-                <span>ИП (Индивидуальный предприниматель)</span>
-                {clientType === 'ИП' && <Check className="w-3.5 h-3.5" />}
-              </button>
+                <option value="">Не выбран</option>
+                {allUsers.filter((u) => u.role === 'accountant').map((u) => (
+                  <option key={u.id} value={u.id}>{u.full_name}</option>
+                ))}
+                {!isManager && user?.role === 'accountant' && (
+                  <option value={user.id}>{user.full_name}</option>
+                )}
+              </select>
             </div>
           </div>
 

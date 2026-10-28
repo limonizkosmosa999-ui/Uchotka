@@ -7,11 +7,11 @@ import {
   AlertCircle,
   Plus,
   Trash2,
-  ChevronDown,
-  ChevronUp,
+  Sparkles,
 } from 'lucide-react';
-import { getCompanies, createTask } from '../lib/api';
-import { Company } from '../types';
+import { getCompanies, createCompanyTasks, getAllUsers } from '../lib/api';
+import { isSupabaseConfigured } from '../lib/supabase';
+import { ClientType, Company, TaskRecurrence, UserProfile } from '../types';
 import { COMMON_DOC_TYPES } from '../lib/mockData';
 import { useAuth } from '../context/AuthContext';
 
@@ -50,7 +50,17 @@ export const TaskNewPage: React.FC = () => {
   const preselectedDueDate = searchParams.get('due_date') || '';
 
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [companyId, setCompanyId] = useState(preselectedCompanyId);
+  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [selectedCompanyIds, setSelectedCompanyIds] = useState<string[]>(
+    preselectedCompanyId ? [preselectedCompanyId] : []
+  );
+  const [executorIds, setExecutorIds] = useState<string[]>(user?.role === 'accountant' ? [user.id] : []);
+  const [controllerIds, setControllerIds] = useState<string[]>([]);
+  const [recurrence, setRecurrence] = useState<TaskRecurrence | ''>('');
+  const [filterDistrict, setFilterDistrict] = useState('');
+  const [filterTaxType, setFilterTaxType] = useState('');
+  const [filterCurator, setFilterCurator] = useState('');
+  const [filterClientType, setFilterClientType] = useState<ClientType | ''>('');
   const [docs, setDocs] = useState<DocEntry[]>([newEntry(preselectedDueDate || undefined)]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,9 +71,37 @@ export const TaskNewPage: React.FC = () => {
     const ownerId = isManager ? undefined : user?.id;
     getCompanies(ownerId).then((comps) => {
       setCompanies(comps);
-      if (!companyId && comps.length > 0) setCompanyId(comps[0].id);
+      setSelectedCompanyIds((selected) => {
+        const validSelected = selected.filter((id) => comps.some((company) => company.id === id));
+        return validSelected.length ? validSelected : comps.slice(0, 1).map((company) => company.id);
+      });
     });
-  }, [user, isManager, companyId]);
+    getAllUsers().then((allUsers) => {
+      setUsers(allUsers);
+      if (user?.role === 'accountant') {
+        setExecutorIds([user.id]);
+      }
+    }).catch((err) => setError(err.message || 'Не удалось загрузить сотрудников'));
+  }, [user, isManager]);
+
+  const filteredCompanies = companies.filter((company) =>
+    (!filterDistrict || company.tax_office_district === filterDistrict)
+    && (!filterTaxType || company.tax_type_id === filterTaxType)
+    && (!filterCurator || company.curator_id === filterCurator)
+    && (!filterClientType || company.client_type === filterClientType)
+  );
+
+  const toggleId = (ids: string[], id: string, setter: (next: string[]) => void) => {
+    setter(ids.includes(id) ? ids.filter((value) => value !== id) : [...ids, id]);
+  };
+
+  const toggleFilteredCompanies = () => {
+    const filteredIds = filteredCompanies.map((company) => company.id);
+    const allSelected = filteredIds.every((id) => selectedCompanyIds.includes(id));
+    setSelectedCompanyIds(allSelected
+      ? selectedCompanyIds.filter((id) => !filteredIds.includes(id))
+      : [...new Set([...selectedCompanyIds, ...filteredIds])]);
+  };
 
   const updateDoc = (id: string, patch: Partial<DocEntry>) => {
     setDocs((prev) => prev.map((d) => (d.id === id ? { ...d, ...patch } : d)));
@@ -85,8 +123,12 @@ export const TaskNewPage: React.FC = () => {
     e.preventDefault();
     setError(null);
 
-    if (!companyId) {
-      setError('Выберите компанию');
+    if (!selectedCompanyIds.length) {
+      setError('Выберите хотя бы одну компанию');
+      return;
+    }
+    if (!executorIds.length) {
+      setError('Выберите хотя бы одного исполнителя');
       return;
     }
 
@@ -108,16 +150,22 @@ export const TaskNewPage: React.FC = () => {
     setLoading(true);
     try {
       for (const doc of docs) {
-        await createTask({
-          company_id: companyId,
-          doc_type: doc.docType.trim(),
-          due_date: doc.dueDate,
-          status: doc.isWaitingMode ? 'waiting' : 'in_progress',
-          wait_until: doc.isWaitingMode ? doc.waitUntil : null,
-          notes: doc.notes.trim() || null,
+        await createCompanyTasks({
+          companyIds: selectedCompanyIds,
+          task: {
+            company_id: selectedCompanyIds[0],
+            doc_type: doc.docType.trim(),
+            due_date: doc.dueDate,
+            status: doc.isWaitingMode ? 'waiting' : 'in_progress',
+            wait_until: doc.isWaitingMode ? doc.waitUntil : null,
+            notes: doc.notes.trim() || null,
+            recurrence_rule: recurrence || null,
+          },
+          executorIds,
+          controllerIds,
         });
       }
-      navigate(`/dashboard${companyId ? `?company=${companyId}` : ''}`);
+      navigate(`/dashboard${selectedCompanyIds.length === 1 ? `?company=${selectedCompanyIds[0]}` : ''}`);
     } catch (err: any) {
       setError(err.message || 'Ошибка при создании задач');
     } finally {
@@ -161,7 +209,7 @@ export const TaskNewPage: React.FC = () => {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Company selector */}
+          {/* Company selectors and grouping filters */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="text-sm font-bold text-[#1E1D19]">
@@ -177,18 +225,177 @@ export const TaskNewPage: React.FC = () => {
                 <Link to="/companies/new" className="text-[#4A8C68] underline">Создать компанию</Link>
               </div>
             ) : (
-              <select
-                value={companyId}
-                onChange={(e) => setCompanyId(e.target.value)}
-                className="w-full px-4 py-3 text-sm border border-[#D4C9B0] rounded-xl focus:outline-none focus:border-[#4A8C68] focus:ring-2 focus:ring-[#4A8C68]/10 bg-white text-[#1E1D19]"
-              >
-                {companies.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} — {c.client_type} (ИНН: {c.inn})
-                  </option>
-                ))}
-              </select>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <select value={filterDistrict} onChange={(e) => setFilterDistrict(e.target.value)} className="px-2 py-2 text-xs border border-[#D4C9B0] rounded-lg">
+                    <option value="">Все районы</option>
+                    {[...new Set(companies.map((company) => company.tax_office_district).filter(Boolean))].map((district) => <option key={district} value={district!}>{district}</option>)}
+                  </select>
+                  <select value={filterTaxType} onChange={(e) => setFilterTaxType(e.target.value)} className="px-2 py-2 text-xs border border-[#D4C9B0] rounded-lg">
+                    <option value="">Все режимы</option>
+                    {[...new Map(companies.filter((company) => company.tax_type).map((company) => [company.tax_type_id, company.tax_type!])).values()].map((tax) => <option key={tax.id} value={tax.id}>{tax.name}</option>)}
+                  </select>
+                  <select value={filterCurator} onChange={(e) => setFilterCurator(e.target.value)} className="px-2 py-2 text-xs border border-[#D4C9B0] rounded-lg">
+                    <option value="">Все кураторы</option>
+                    {users.filter((candidate) => candidate.role === 'accountant').map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.full_name}</option>)}
+                  </select>
+                  <select value={filterClientType} onChange={(e) => setFilterClientType(e.target.value as ClientType | '')} className="px-2 py-2 text-xs border border-[#D4C9B0] rounded-lg">
+                    <option value="">Все формы</option>
+                    {(['ИП', 'ОсОО', 'ОО', 'ОФ'] as ClientType[]).map((type) => <option key={type} value={type}>{type}</option>)}
+                  </select>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-[#6B6558]">Выбрано компаний: {selectedCompanyIds.length}</span>
+                  <button type="button" onClick={toggleFilteredCompanies} className="font-semibold text-[#4A8C68] hover:underline">
+                    {filteredCompanies.length > 0 && filteredCompanies.every((company) => selectedCompanyIds.includes(company.id))
+                      ? 'Снять выбор'
+                      : 'Выбрать все подходящие'}
+                  </button>
+                </div>
+                <div className="max-h-52 overflow-auto rounded-xl border border-[#D4C9B0] divide-y divide-[#EAE3D6]">
+                  {filteredCompanies.map((company) => (
+                    <label key={company.id} className="flex items-center gap-3 px-3 py-2.5 text-sm cursor-pointer hover:bg-[#FAF8F4]">
+                      <input
+                        type="checkbox"
+                        checked={selectedCompanyIds.includes(company.id)}
+                        onChange={() => toggleId(selectedCompanyIds, company.id, setSelectedCompanyIds)}
+                      />
+                      <span className="min-w-0">
+                        <span className="block truncate font-medium">{company.name}</span>
+                        <span className="text-xs text-[#8C8577]">{company.client_type} · ИНН {company.inn}</span>
+                      </span>
+                    </label>
+                  ))}
+                  {filteredCompanies.length === 0 && <p className="p-3 text-xs text-[#8C8577]">Нет компаний по выбранным фильтрам.</p>}
+                </div>
+              </div>
             )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <fieldset className="border border-[#D4C9B0] rounded-xl p-3">
+              <legend className="px-1 text-sm font-bold text-[#1E1D19]">Исполнители *</legend>
+              <div className="max-h-36 overflow-auto space-y-2">
+                {users.filter((candidate) => candidate.role === 'accountant').map((candidate) => (
+                  <label key={candidate.id} className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={executorIds.includes(candidate.id)} onChange={() => toggleId(executorIds, candidate.id, setExecutorIds)} />
+                    {candidate.full_name}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <fieldset className="border border-[#D4C9B0] rounded-xl p-3">
+              <legend className="px-1 text-sm font-bold text-[#1E1D19]">Контролирующие</legend>
+              <div className="max-h-36 overflow-auto space-y-2">
+                {users.map((candidate) => (
+                  <label key={candidate.id} className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={controllerIds.includes(candidate.id)} onChange={() => toggleId(controllerIds, candidate.id, setControllerIds)} />
+                    {candidate.full_name}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-[#1E1D19] mb-2">Повтор задачи</label>
+            <select value={recurrence} onChange={(e) => setRecurrence(e.target.value as TaskRecurrence | '')} className="w-full px-4 py-3 text-sm border border-[#D4C9B0] rounded-xl bg-white">
+              <option value="">Без повтора</option>
+              <option value="monthly">Каждый месяц</option>
+              <option value="quarterly">Каждый квартал</option>
+              <option value="yearly">Каждый год</option>
+            </select>
+            {recurrence && (
+              <p className="mt-1 text-xs text-[#8C8577]">
+                {isSupabaseConfigured
+                  ? 'Следующие задачи будут автоматически создаваться по расписанию.'
+                  : 'Автоматическое создание по расписанию работает после подключения Supabase и применения миграции повторяющихся задач.'}
+              </p>
+            )}
+          </div>
+
+          {/* Tax Templates Preset Applicator (Item 3 from prompt) */}
+          <div className="p-4 rounded-xl bg-[#FAF8F5] border border-[#EAE3D6] space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-[#2B2A25] flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-[#5FA07A]" />
+                <span>Заполнить по шаблону режима налогообложения КР</span>
+              </span>
+              <Link
+                to="/tax-calendar?tab=generator"
+                className="text-[11px] text-[#5FA07A] font-semibold hover:underline"
+              >
+                Генератор на год →
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const year = new Date().getFullYear();
+                  setDocs([
+                    { id: '1', docType: `FORM STI-091 (Единый налог) — I квартал ${year}`, dueDate: `${year}-04-20`, isWaitingMode: false, waitUntil: '', notes: 'Квартальный отчет', showSuggestions: false },
+                    { id: '2', docType: `FORM STI-091 (Единый налог) — II квартал ${year}`, dueDate: `${year}-07-20`, isWaitingMode: false, waitUntil: '', notes: 'Квартальный отчет', showSuggestions: false },
+                    { id: '3', docType: `FORM STI-091 (Единый налог) — III квартал ${year}`, dueDate: `${year}-10-20`, isWaitingMode: false, waitUntil: '', notes: 'Квартальный отчет', showSuggestions: false },
+                    { id: '4', docType: `FORM STI-091 (Единый налог) — IV квартал ${year}`, dueDate: `${year + 1}-01-20`, isWaitingMode: false, waitUntil: '', notes: 'Квартальный отчет', showSuggestions: false },
+                    { id: '5', docType: `FORM STI-102 (ЕНД ИП) — годовая за ${year} год`, dueDate: `${year + 1}-05-01`, isWaitingMode: false, waitUntil: '', notes: 'Годовая Единая налоговая декларация ИП до 1 мая', showSuggestions: false },
+                  ]);
+                }}
+                className="p-2.5 rounded-lg border border-[#EAE3D6] bg-white hover:bg-[#E7F3EB] text-left text-xs transition"
+              >
+                <span className="font-semibold text-[#2B2A25] block">ИП на едином налоге</span>
+                <span className="text-[10px] text-[#8C8577]">4 квартала STI-091 + годовая STI-102 (5 задач)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const year = new Date().getFullYear();
+                  setDocs([
+                    { id: '1', docType: `FORM STI-062 (НДС 12%) — ежемесячный`, dueDate: `${year}-11-25`, isWaitingMode: false, waitUntil: '', notes: 'Срок до 25 числа следующего месяца', showSuggestions: false },
+                    { id: '2', docType: `FORM STI-161 (Зарплатные налоги и ГСС) — ежемесячный`, dueDate: `${year}-11-20`, isWaitingMode: false, waitUntil: '', notes: 'Срок до 20 числа следующего месяца', showSuggestions: false },
+                    { id: '3', docType: `FORM STI-129 (Налог с продаж) — ежемесячный`, dueDate: `${year}-11-20`, isWaitingMode: false, waitUntil: '', notes: 'Срок до 20 числа следующего месяца', showSuggestions: false },
+                    { id: '4', docType: `FORM STI-107 (Аванс по налогу на прибыль) — квартальный`, dueDate: `${year}-10-20`, isWaitingMode: false, waitUntil: '', notes: 'Квартальный авансовый расчет', showSuggestions: false },
+                    { id: '5', docType: `FORM STI-101 (ЕНД юрлица) — годовая за ${year} год`, dueDate: `${year + 1}-04-01`, isWaitingMode: false, waitUntil: '', notes: 'Годовая декларация организации до 1 апреля', showSuggestions: false },
+                  ]);
+                }}
+                className="p-2.5 rounded-lg border border-[#EAE3D6] bg-white hover:bg-[#E7F3EB] text-left text-xs transition"
+              >
+                <span className="font-semibold text-[#2B2A25] block">ОсОО на общем режиме (с НДС)</span>
+                <span className="text-[10px] text-[#8C8577]">НДС 25-го, подоходный, продажи, авансы и ЕНД</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const year = new Date().getFullYear();
+                  setDocs([
+                    { id: '1', docType: `Налоговый патент КР — продление на месяц`, dueDate: `${year}-11-01`, isWaitingMode: false, waitUntil: '', notes: 'Уплата до 1 числа месяца', showSuggestions: false },
+                    { id: '2', docType: `Страховой полис Соцфонда ГСС — продление`, dueDate: `${year}-11-01`, isWaitingMode: false, waitUntil: '', notes: 'Оплата полиса Соцфонда', showSuggestions: false },
+                    { id: '3', docType: `FORM STI-102 (ЕНД ИП) — годовая за ${year} год`, dueDate: `${year + 1}-05-01`, isWaitingMode: false, waitUntil: '', notes: 'Годовая ЕНД ИП до 1 мая', showSuggestions: false },
+                  ]);
+                }}
+                className="p-2.5 rounded-lg border border-[#EAE3D6] bg-white hover:bg-[#E7F3EB] text-left text-xs transition"
+              >
+                <span className="font-semibold text-[#2B2A25] block">ИП на патенте</span>
+                <span className="text-[10px] text-[#8C8577]">Патент + Полис Соцфонда + Годовая ЕНД</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const year = new Date().getFullYear();
+                  setDocs([
+                    { id: '1', docType: `FORM STI-123 (Косвенные налоги ЕАЭС)`, dueDate: `${year}-11-20`, isWaitingMode: false, waitUntil: '', notes: 'Импорт из государств ЕАЭС до 20 числа', showSuggestions: false },
+                    { id: '2', docType: `FORM STI-062 (НДС)`, dueDate: `${year}-11-25`, isWaitingMode: false, waitUntil: '', notes: 'Зачетный НДС до 25 числа', showSuggestions: false },
+                  ]);
+                }}
+                className="p-2.5 rounded-lg border border-[#EAE3D6] bg-white hover:bg-[#E7F3EB] text-left text-xs transition"
+              >
+                <span className="font-semibold text-[#2B2A25] block">ВЭД / Импорт ЕАЭС</span>
+                <span className="text-[10px] text-[#8C8577]">Косвенные налоги STI-123 + НДС STI-062</span>
+              </button>
+            </div>
           </div>
 
           {/* Documents List */}

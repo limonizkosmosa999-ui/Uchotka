@@ -2,22 +2,25 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Calendar, 
-  Clock, 
   Hourglass, 
   CheckCircle2, 
   Building, 
   MoreVertical, 
-  AlertCircle, 
   Check, 
   Trash2, 
-  FileText,
   User,
-  ArrowRight,
   X,
+  MessageCircle,
+  Flame,
+  ShieldAlert,
 } from 'lucide-react';
 import { Task, TaskStatus } from '../types';
 import { formatDateRu, getUrgencyBadge, getDaysLeftText } from '../lib/dateUtils';
 import { updateTask, deleteTask } from '../lib/api';
+import { useAuth } from '../context/AuthContext';
+import { SendReminderModal } from './SendReminderModal';
+import { EscalateTaskModal } from './EscalateTaskModal';
+import { resolveTaskEscalation } from '../lib/escalation';
 
 interface TaskCardProps {
   task: Task;
@@ -32,12 +35,16 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   onTaskDeleted,
   showAccountant = false,
 }) => {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [isEditingWait, setIsEditingWait] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  const [showReminderModal, setShowReminderModal] = useState(false);
+  const [showEscalateModal, setShowEscalateModal] = useState(false);
   const [waitDate, setWaitDate] = useState(task.wait_until || '');
 
+  const isManager = user?.role === 'manager';
   const badge = getUrgencyBadge(task);
   const daysLeft = getDaysLeftText(task.due_date);
   const statusLabel: Record<TaskStatus, string> = {
@@ -46,6 +53,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     waiting: 'Ожидает ответа',
     done: 'Завершено',
   };
+
 
   useEffect(() => {
     if (!showDetails) return;
@@ -104,13 +112,50 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     }
   };
 
+  const handleResolveEscalation = async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      const updated = await resolveTaskEscalation(task, user, 'Вопрос урегулирован');
+      onTaskUpdated?.(updated);
+    } catch (err) {
+      console.error('Failed to resolve escalation:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <>
     <div
-      className={`relative bg-white border border-[#EAE3D6] rounded-[10px] p-4 transition hover:border-[#C7A96E] ${
-        loading ? 'opacity-60 pointer-events-none' : ''
-      }`}
+      className={`relative bg-white border rounded-[12px] p-4 transition shadow-sm ${
+        task.is_escalated
+          ? 'border-[#DD6B60] ring-1 ring-[#DD6B60]/40'
+          : 'border-[#EAE3D6] hover:border-[#C7A96E]'
+      } ${loading ? 'opacity-60 pointer-events-none' : ''}`}
     >
+      {/* Escalation Warning Banner */}
+      {task.is_escalated && (
+        <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-[#FCE6E3] border border-[#DD6B60]/30 text-[#DD6B60] text-xs font-semibold mb-3">
+          <div className="flex items-center gap-1.5 overflow-hidden">
+            <Flame className="w-4 h-4 fill-current flex-shrink-0 animate-bounce" />
+            <span className="truncate">
+              Эскалировано: {task.escalation_reason || 'Срочный контроль руководителя'}
+            </span>
+          </div>
+          {isManager && (
+            <button
+              type="button"
+              onClick={handleResolveEscalation}
+              className="text-[10px] bg-white px-2 py-0.5 rounded border border-[#DD6B60]/40 hover:bg-[#FCE6E3] transition whitespace-nowrap flex-shrink-0"
+              title="Снять эскалацию"
+            >
+              Снять
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Top Header: Badge & Status Menu */}
       <div className="flex items-center justify-between gap-2 mb-2.5">
         <div
@@ -141,7 +186,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           </button>
 
           {showMenu && (
-            <div className="absolute right-0 mt-1 w-48 bg-white border border-[#EAE3D6] rounded-[10px] shadow-lg p-1.5 z-30 text-xs">
+            <div className="absolute right-0 mt-1 w-52 bg-white border border-[#EAE3D6] rounded-[10px] shadow-lg p-1.5 z-30 text-xs">
               <div className="px-2 py-1 text-[10px] uppercase font-semibold text-[#8C8577]">
                 Сменить статус:
               </div>
@@ -180,6 +225,48 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 <span>Завершено (Готово)</span>
                 {task.status === 'done' && <Check className="w-3 h-3 text-[#5FA07A]" />}
               </button>
+
+              <div className="border-t border-[#EAE3D6] my-1" />
+
+              {/* Reminder trigger */}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMenu(false);
+                  setShowReminderModal(true);
+                }}
+                className="w-full text-left px-2 py-1.5 rounded-[6px] hover:bg-[#FAF8F5] text-[#25D366] font-medium flex items-center gap-1.5"
+              >
+                <MessageCircle className="w-3.5 h-3.5" />
+                <span>Напомнить клиенту</span>
+              </button>
+
+              {/* Escalation trigger */}
+              {!task.is_escalated ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowMenu(false);
+                    setShowEscalateModal(true);
+                  }}
+                  className="w-full text-left px-2 py-1.5 rounded-[6px] hover:bg-[#FCE6E3] text-[#DD6B60] font-medium flex items-center gap-1.5"
+                >
+                  <Flame className="w-3.5 h-3.5" />
+                  <span>Эскалировать</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowMenu(false);
+                    handleResolveEscalation();
+                  }}
+                  className="w-full text-left px-2 py-1.5 rounded-[6px] hover:bg-[#FAF8F5] text-[#5FA07A] font-medium flex items-center gap-1.5"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Снять эскалацию</span>
+                </button>
+              )}
 
               <div className="border-t border-[#EAE3D6] my-1" />
               <button
@@ -291,30 +378,50 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         </div>
 
         {/* Assigned accountant tag (for manager panel) */}
-        {showAccountant && task.company?.owner && (
+        {showAccountant && (task.assignments?.some((assignment) => assignment.assignment_role === 'executor') || task.company?.owner) && (
           <div className="flex items-center gap-1 text-[11px] text-[#8C8577] bg-[#FAF8F5] px-2 py-0.5 rounded-[6px] border border-[#EAE3D6]">
             <User className="w-3 h-3 text-[#5FA07A]" />
-            <span className="truncate max-w-[120px]">{task.company.owner.full_name.split(' ')[0]}</span>
+            <span className="truncate max-w-[160px]">
+              {task.assignments?.some((assignment) => assignment.assignment_role === 'executor')
+                ? task.assignments
+                    .filter((assignment) => assignment.assignment_role === 'executor')
+                    .map((assignment) => assignment.user?.full_name || assignment.user_id)
+                    .join(', ')
+                : task.company?.owner?.full_name.split(' ')[0]}
+            </span>
           </div>
         )}
 
-        {/* Quick action button */}
-        {task.status !== 'done' ? (
+        {/* Right side actions */}
+        <div className="flex items-center gap-1.5">
+          {/* Reminder button */}
           <button
             type="button"
-            onClick={() => handleStatusChange('done')}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-[6px] text-xs font-medium text-[#5FA07A] bg-[#E7F3EB] hover:bg-[#5FA07A] hover:text-white transition"
-            title="Отметить выполненным"
+            onClick={() => setShowReminderModal(true)}
+            className="p-1.5 rounded-[6px] text-[#25D366] hover:bg-[#25D366]/10 transition"
+            title="Отправить напоминание в WhatsApp / Telegram"
           >
-            <Check className="w-3 h-3" />
-            <span>Сдано</span>
+            <MessageCircle className="w-3.5 h-3.5" />
           </button>
-        ) : (
-          <span className="flex items-center gap-1 text-xs text-[#5FA07A] font-medium">
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>Завершено</span>
-          </span>
-        )}
+
+          {/* Quick action button */}
+          {task.status !== 'done' ? (
+            <button
+              type="button"
+              onClick={() => handleStatusChange('done')}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-[6px] text-xs font-medium text-[#5FA07A] bg-[#E7F3EB] hover:bg-[#5FA07A] hover:text-white transition"
+              title="Отметить выполненным"
+            >
+              <Check className="w-3 h-3" />
+              <span>Сдано</span>
+            </button>
+          ) : (
+            <span className="flex items-center gap-1 text-xs text-[#5FA07A] font-medium">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>Завершено</span>
+            </span>
+          )}
+        </div>
       </div>
     </div>
     {showDetails && (
@@ -361,6 +468,30 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                   {formatDateRu(task.due_date, 'd MMMM yyyy')}
                 </span>
               </div>
+              {(task.assignments?.length || task.recurrence_rule) && (
+                <div className="space-y-2 text-sm">
+                  {task.assignments?.length ? (
+                    <div>
+                      <h3 className="font-semibold text-[#2B2A25] mb-1">Назначенные сотрудники</h3>
+                      <ul className="space-y-1 text-[#6B6558]">
+                        {task.assignments.map((assignment) => (
+                          <li key={`${assignment.user_id}-${assignment.assignment_role}`}>
+                            {assignment.assignment_role === 'executor' ? 'Исполнитель: ' : 'Контролирующий: '}
+                            {assignment.user?.full_name || assignment.user_id}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                  {task.recurrence_rule && (
+                    <p className="text-[#6B6558]">
+                      Повтор: {task.recurrence_rule === 'monthly'
+                        ? 'ежемесячно'
+                        : task.recurrence_rule === 'quarterly' ? 'ежеквартально' : 'ежегодно'}
+                    </p>
+                  )}
+                </div>
+              )}
               <div>
                 <span className="block text-xs text-[#8C8577] mb-1">Статус</span>
                 <span className="font-semibold text-[#2B2A25]">{statusLabel[task.status]}</span>
@@ -399,7 +530,34 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               </div>
             </div>
 
-            <div className="flex justify-end">
+            <div className="flex items-center justify-between pt-4 border-t border-[#EAE3D6]">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowReminderModal(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#25D366]/40 text-[#128C7E] bg-[#25D366]/10 text-xs font-semibold hover:bg-[#25D366]/20 transition"
+                >
+                  <MessageCircle className="w-3.5 h-3.5" />
+                  <span>Напомнить (WhatsApp / TG)</span>
+                </button>
+
+                {!task.is_escalated ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowEscalateModal(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#DD6B60]/40 text-[#DD6B60] bg-[#FCE6E3]/40 text-xs font-semibold hover:bg-[#FCE6E3] transition"
+                  >
+                    <Flame className="w-3.5 h-3.5" />
+                    <span>Эскалировать</span>
+                  </button>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-xs text-[#DD6B60] font-bold">
+                    <Flame className="w-3.5 h-3.5 fill-current" />
+                    <span>Эскалировано</span>
+                  </span>
+                )}
+              </div>
+
               <button
                 type="button"
                 onClick={() => setShowDetails(false)}
@@ -412,6 +570,29 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         </section>
       </div>
     )}
+
+    {/* Reminder modal */}
+    {showReminderModal && user && (
+      <SendReminderModal
+        task={task}
+        currentUser={user}
+        onClose={() => setShowReminderModal(false)}
+      />
+    )}
+
+    {/* Escalation modal */}
+    {showEscalateModal && user && (
+      <EscalateTaskModal
+        task={task}
+        currentUser={user}
+        onClose={() => setShowEscalateModal(false)}
+        onSuccess={(updated) => {
+          onTaskUpdated?.(updated);
+          setShowEscalateModal(false);
+        }}
+      />
+    )}
     </>
   );
 };
+

@@ -311,6 +311,28 @@ export async function getCompanyDocuments(companyId: string): Promise<CompanyDoc
     .sort((a, b) => b.received_at.localeCompare(a.received_at));
 }
 
+export async function getAllCompanyDocuments(): Promise<CompanyDocument[]> {
+  if (isSupabaseConfigured) {
+    const { data, error } = await supabase
+      .from('company_documents')
+      .select('*, company:companies(*)')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data || []) as CompanyDocument[];
+  }
+
+  const documents: CompanyDocument[] = JSON.parse(
+    localStorage.getItem(LS_COMPANY_DOCUMENTS) || '[]'
+  );
+  const companies = await getCompanies();
+  return documents
+    .map((document) => ({
+      ...document,
+      company: companies.find((company) => company.id === document.company_id),
+    }))
+    .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+}
+
 export async function getCompanyDocumentUrl(document: CompanyDocument): Promise<string> {
   if (document.file_data_url) return document.file_data_url;
 
@@ -561,6 +583,11 @@ export async function getTasks(options?: {
   if (isSupabaseConfigured) {
     let query = supabase.from('tasks').select(`
       *,
+      assignments:task_assignees (
+        user_id,
+        assignment_role,
+        user:users (*)
+      ),
       company:companies (
         *,
         owner:users (*)
@@ -576,7 +603,10 @@ export async function getTasks(options?: {
 
     let result = (data || []) as Task[];
     if (options?.ownerId) {
-      result = result.filter((t) => t.company?.owner_id === options.ownerId);
+      result = result.filter((task) =>
+        task.company?.owner_id === options.ownerId
+        || task.assignments?.some((assignment) => assignment.user_id === options.ownerId)
+      );
     }
     return result;
   }
@@ -600,7 +630,10 @@ export async function getTasks(options?: {
   }
 
   if (options?.ownerId) {
-    populated = populated.filter((t) => t.company?.owner_id === options.ownerId);
+    populated = populated.filter((task) =>
+      task.company?.owner_id === options.ownerId
+      || task.assignments?.some((assignment) => assignment.user_id === options.ownerId)
+    );
   }
 
   // Sort by due_date ascending
@@ -648,6 +681,63 @@ export async function createTask(
   // Return populated
   const allPopulated = await getTasks();
   return allPopulated.find((t) => t.id === newTask.id) || newTask;
+}
+
+export async function createCompanyTasks(input: {
+  companyIds: string[];
+  task: Omit<Task, 'id' | 'created_at' | 'updated_at' | 'company' | 'assignments'>;
+  executorIds: string[];
+  controllerIds: string[];
+}): Promise<Task[]> {
+  const { companyIds, task, executorIds, controllerIds } = input;
+  if (!companyIds.length) throw new Error('Выберите хотя бы одну компанию');
+
+  if (isSupabaseConfigured) {
+    const { data, error } = await supabase.rpc('create_company_tasks', {
+      p_company_ids: companyIds,
+      p_doc_type: task.doc_type,
+      p_due_date: task.due_date,
+      p_status: task.status || 'in_progress',
+      p_wait_until: task.wait_until || null,
+      p_notes: task.notes || null,
+      p_executor_ids: executorIds,
+      p_controller_ids: controllerIds,
+      p_recurrence_rule: task.recurrence_rule || null,
+    });
+    if (error) throw error;
+    return (data || []) as Task[];
+  }
+
+  const users: UserProfile[] = JSON.parse(localStorage.getItem(LS_USERS) || '[]');
+  const tasks: Task[] = JSON.parse(localStorage.getItem(LS_TASKS) || '[]');
+  const idPrefix = `task-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const created: Task[] = companyIds.map((companyId, index) => ({
+    ...task,
+    company_id: companyId,
+    id: `${idPrefix}-${index}`,
+    status: task.status || 'in_progress',
+    wait_until: task.wait_until || null,
+    notes: task.notes || null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    assignments: [
+      ...executorIds.map((user_id) => ({
+        user_id,
+        assignment_role: 'executor' as const,
+        user: users.find((user) => user.id === user_id),
+      })),
+      ...controllerIds.map((user_id) => ({
+        user_id,
+        assignment_role: 'controller' as const,
+        user: users.find((user) => user.id === user_id),
+      })),
+    ],
+  }));
+
+  tasks.unshift(...created);
+  localStorage.setItem(LS_TASKS, JSON.stringify(tasks));
+  created.forEach((createdTask) => emitMockRealtimeEvent('tasks', 'INSERT', createdTask));
+  return created;
 }
 
 export async function updateTask(

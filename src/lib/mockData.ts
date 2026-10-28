@@ -69,6 +69,8 @@ export const MOCK_COMPANIES: Company[] = [
     inn: '02503202110192',
     client_type: 'ОсОО',
     tax_type_id: 'tax-2', // Общий
+    tax_office_district: 'Первомайский',
+    curator_id: 'user-acc-1',
     notes: 'Оптовая торговля, импорт продуктов питания. Ежемесячный НДС и Соцфонд.',
     created_at: '2026-01-20T10:00:00Z',
   },
@@ -79,6 +81,8 @@ export const MOCK_COMPANIES: Company[] = [
     inn: '21508198900451',
     client_type: 'ИП',
     tax_type_id: 'tax-1', // Единый
+    tax_office_district: 'Ленинский',
+    curator_id: 'user-acc-1',
     notes: 'Разработка ПО и IT-консалтинг. Клиенты на зарубеж, безналичные валютные поступления.',
     created_at: '2026-02-05T11:00:00Z',
   },
@@ -89,6 +93,8 @@ export const MOCK_COMPANIES: Company[] = [
     inn: '01204201910087',
     client_type: 'ОсОО',
     tax_type_id: 'tax-2', // Общий
+    tax_office_district: 'Свердловский',
+    curator_id: 'user-acc-1',
     notes: 'Транспортно-экспедиторские услуги, таможенное оформление.',
     created_at: '2026-02-14T09:00:00Z',
   },
@@ -99,6 +105,8 @@ export const MOCK_COMPANIES: Company[] = [
     inn: '00311201810432',
     client_type: 'ОсОО',
     tax_type_id: 'tax-2', // Общий
+    tax_office_district: 'Первомайский',
+    curator_id: 'user-acc-2',
     notes: 'Аптечная сеть, поставки медикаментов.',
     created_at: '2026-02-18T14:30:00Z',
   },
@@ -109,6 +117,8 @@ export const MOCK_COMPANIES: Company[] = [
     inn: '10904199200388',
     client_type: 'ИП',
     tax_type_id: 'tax-1', // Единый
+    tax_office_district: 'Октябрьский',
+    curator_id: 'user-acc-2',
     notes: 'Сеть кофеен, кассовые аппараты ККМ онлайн.',
     created_at: '2026-02-22T12:00:00Z',
   },
@@ -119,6 +129,8 @@ export const MOCK_COMPANIES: Company[] = [
     inn: '20101198500219',
     client_type: 'ИП',
     tax_type_id: 'tax-1', // Единый
+    tax_office_district: 'Ленинский',
+    curator_id: 'user-acc-3',
     notes: 'Дизайн студия, интерьеры.',
     created_at: '2026-03-05T10:00:00Z',
   },
@@ -129,6 +141,8 @@ export const MOCK_COMPANIES: Company[] = [
     inn: '01809202010543',
     client_type: 'ОсОО',
     tax_type_id: 'tax-2', // Общий
+    tax_office_district: 'Свердловский',
+    curator_id: 'user-acc-3',
     notes: 'Строительные подрядные работы.',
     created_at: '2026-03-10T16:00:00Z',
   },

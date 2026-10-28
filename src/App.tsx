@@ -2,9 +2,12 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navbar } from './components/Navbar';
+import { MobileBottomNav } from './components/MobileBottomNav';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { CalendarPage } from './pages/CalendarPage';
+import { TaxCalendarPage } from './pages/TaxCalendarPage';
+import { ImportPage } from './pages/ImportPage';
 import { CompanyDetailPage } from './pages/CompanyDetailPage';
 import { CompanyNewPage } from './pages/CompanyNewPage';
 import { TaskNewPage } from './pages/TaskNewPage';
@@ -32,7 +35,8 @@ const ProtectedRoute: React.FC<{
   return (
     <div className="min-h-screen flex flex-col bg-[#FAF8F5]">
       <Navbar />
-      <div className="flex-1">{children}</div>
+      <div className="flex-1 pb-16 md:pb-0">{children}</div>
+      <MobileBottomNav />
     </div>
   );
 };
@@ -121,6 +125,22 @@ export function App() {
             element={
               <ProtectedRoute>
                 <SettingsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/tax-calendar"
+            element={
+              <ProtectedRoute>
+                <TaxCalendarPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/import"
+            element={
+              <ProtectedRoute>
+                <ImportPage />
               </ProtectedRoute>
             }
           />

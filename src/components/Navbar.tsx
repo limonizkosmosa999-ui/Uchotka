@@ -10,6 +10,8 @@ import {
   Users,
   CheckCircle2,
   ChevronDown,
+  BookOpen,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getAllUsers, getNotifications, markNotificationRead } from '../lib/api';
@@ -88,6 +90,12 @@ export const Navbar: React.FC = () => {
       icon: CalendarIcon,
       active: location.pathname === '/calendar',
     },
+    {
+      to: '/tax-calendar',
+      label: 'Налоги КР',
+      icon: BookOpen,
+      active: location.pathname === '/tax-calendar',
+    },
   ];
 
   return (
@@ -141,6 +149,13 @@ export const Navbar: React.FC = () => {
               >
                 <PlusCircle className="w-3.5 h-3.5 text-[#8C8577]" />
                 <span>+ Компания</span>
+              </Link>
+              <Link
+                to="/import"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-[10px] text-xs font-medium border border-[#EAE3D6] text-[#2B2A25] bg-white hover:bg-[#FAF8F5] transition"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-[#8C8577]" />
+                <span>Импорт</span>
               </Link>
               <Link
                 to="/tasks/new"

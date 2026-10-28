@@ -7,37 +7,86 @@ import {
   AlertTriangle, 
   RefreshCw,
   Eye,
-  AlertCircle
+  AlertCircle,
+  Flame,
+  ShieldCheck,
+  Download,
+  MessageCircle,
+  Check,
+  CalendarDays,
+  FileSpreadsheet
 } from 'lucide-react';
-import { getAllUsers, getCompanies, getTasks, subscribeToTasks } from '../lib/api';
-import { UserProfile, Company, Task, AccountantStat } from '../types';
+import { getAllUsers, getAllCompanyDocuments, getCompanies, getTasks, subscribeToTasks } from '../lib/api';
+import { UserProfile, Company, CompanyDocument, Task, AccountantStat, ActivityLog } from '../types';
 import { getTaskUrgency, formatDateRu } from '../lib/dateUtils';
 import { TaskCard } from '../components/TaskCard';
+import { useAuth } from '../context/AuthContext';
+import { evaluateTaskEscalations, resolveTaskEscalation } from '../lib/escalation';
+import { getActivityLogs, exportActivityLogsToCsv, downloadCsvFile } from '../lib/activityLog';
+import { formatWhatsAppUrl } from '../lib/messenger';
 
 export const ManagerPage: React.FC = () => {
+  const { user } = useAuth();
   const [accountants, setAccountants] = useState<UserProfile[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [documents, setDocuments] = useState<CompanyDocument[]>([]);
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+  const [selectedAccountantId, setSelectedAccountantId] = useState('');
   const [loading, setLoading] = useState(true);
+  const [checkingEscalations, setCheckingEscalations] = useState(false);
   const [lastRealtimeEvent, setLastRealtimeEvent] = useState<string | null>(null);
+  const [auditFilter, setAuditFilter] = useState<string>('all');
 
   const loadData = async () => {
     try {
       setLoading(true);
-      const [u, c, t] = await Promise.all([
+      const [u, c, t, d, logs] = await Promise.all([
         getAllUsers(),
         getCompanies(),
         getTasks(),
+        getAllCompanyDocuments(),
+        getActivityLogs({ limit: 100 }),
       ]);
       setAccountants(u.filter((x) => x.role === 'accountant' || x.role === 'manager'));
       setCompanies(c);
       setTasks(t);
+      setDocuments(d);
+      setActivityLogs(logs);
     } catch (err) {
       console.error('Error loading manager metrics:', err);
     } finally {
       setLoading(false);
     }
   };
+
+  const handleCheckEscalations = async () => {
+    setCheckingEscalations(true);
+    try {
+      const res = await evaluateTaskEscalations(tasks, user);
+      if (res.newlyEscalatedCount > 0) {
+        alert(`Эскалировано ${res.newlyEscalatedCount} задач! Они вынесены на контроль.`);
+        await loadData();
+      } else {
+        alert('Все задачи проверены. Новых критических дедлайнов не обнаружено.');
+      }
+    } catch (err) {
+      console.error('Error checking escalations:', err);
+    } finally {
+      setCheckingEscalations(false);
+    }
+  };
+
+  const handleResolveEscalation = async (task: Task) => {
+    if (!user) return;
+    try {
+      await resolveTaskEscalation(task, user, 'Решено руководителем');
+      await loadData();
+    } catch (err) {
+      console.error('Failed to resolve escalation:', err);
+    }
+  };
+
 
   useEffect(() => {
     loadData();
@@ -47,10 +96,11 @@ export const ManagerPage: React.FC = () => {
       console.log('Realtime event received in Manager view:', payload);
       setLastRealtimeEvent(new Date().toLocaleTimeString('ru-RU'));
       // Silently refresh metrics
-      Promise.all([getAllUsers(), getCompanies(), getTasks()]).then(([u, c, t]) => {
+      Promise.all([getAllUsers(), getCompanies(), getTasks(), getAllCompanyDocuments()]).then(([u, c, t, d]) => {
         setAccountants(u.filter((x) => x.role === 'accountant' || x.role === 'manager'));
         setCompanies(c);
         setTasks(t);
+        setDocuments(d);
       });
     });
 
@@ -79,7 +129,14 @@ export const ManagerPage: React.FC = () => {
     .map((acc) => {
       const accCompanies = companies.filter((c) => c.owner_id === acc.id);
       const accCompanyIds = new Set(accCompanies.map((c) => c.id));
-      const accTasks = tasks.filter((t) => accCompanyIds.has(t.company_id));
+      const accTasks = tasks.filter((task) => {
+        if (task.assignments?.length) {
+          return task.assignments.some(
+            (assignment) => assignment.assignment_role === 'executor' && assignment.user_id === acc.id
+          );
+        }
+        return accCompanyIds.has(task.company_id);
+      });
 
       const completedTasks = accTasks.filter(
         (task) => task.status === 'done' || task.status === 'submitted'
@@ -105,6 +162,9 @@ export const ManagerPage: React.FC = () => {
         completionPercentage,
       };
     });
+  const visibleAccountantStats = accountantStats.filter(
+    (stat) => !selectedAccountantId || stat.accountant.id === selectedAccountantId
+  );
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -130,7 +190,30 @@ export const ManagerPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={handleCheckEscalations}
+            disabled={checkingEscalations}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] border border-[#DD6B60]/30 text-xs font-semibold text-[#DD6B60] bg-[#FCE6E3]/40 hover:bg-[#FCE6E3] transition disabled:opacity-50"
+          >
+            <Flame className="w-3.5 h-3.5" />
+            <span>{checkingEscalations ? 'Проверка...' : 'Проверить риски эскалации'}</span>
+          </button>
+          <Link
+            to="/tax-calendar"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] border border-[#EAE3D6] text-xs font-semibold text-[#2B2A25] bg-white hover:bg-[#FAF8F5] transition"
+          >
+            <CalendarDays className="w-3.5 h-3.5 text-[#5FA07A]" />
+            <span>Налоги КР</span>
+          </Link>
+          <Link
+            to="/import"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] border border-[#EAE3D6] text-xs font-semibold text-[#2B2A25] bg-white hover:bg-[#FAF8F5] transition"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5 text-[#5FA07A]" />
+            <span>Импорт</span>
+          </Link>
           <button
             onClick={loadData}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] border border-[#EAE3D6] text-xs font-semibold text-[#2B2A25] bg-white hover:bg-[#FAF8F5] transition"
@@ -140,7 +223,7 @@ export const ManagerPage: React.FC = () => {
           </button>
           <Link
             to="/companies/new"
-            className="px-3.5 py-1.5 rounded-[8px] text-xs font-medium text-[#2B2A25] bg-white border border-[#EAE3D6] hover:bg-[#FAF8F5] transition"
+            className="px-3 py-1.5 rounded-[8px] text-xs font-medium text-[#2B2A25] bg-white border border-[#EAE3D6] hover:bg-[#FAF8F5] transition"
           >
             + Клиент
           </Link>
@@ -154,7 +237,7 @@ export const ManagerPage: React.FC = () => {
       </div>
 
       {/* 4 Summary Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {/* 1. Accountants */}
         <div className="bg-white border border-[#EAE3D6] rounded-[10px] p-5">
           <div className="flex items-center justify-between">
@@ -211,6 +294,96 @@ export const ManagerPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Escalated Tasks Section (Item 7 from prompt) */}
+      {(() => {
+        const escalatedTasks = tasks.filter(
+          (t) => t.is_escalated && t.status !== 'done' && t.status !== 'submitted'
+        );
+
+        if (escalatedTasks.length === 0) return null;
+
+        return (
+          <div className="bg-white border border-[#DD6B60] rounded-2xl p-6 mb-8 shadow-sm">
+            <div className="flex items-center justify-between gap-3 mb-4 pb-3 border-b border-[#DD6B60]/20">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-[#FCE6E3] text-[#DD6B60] flex items-center justify-center">
+                  <Flame className="w-5 h-5 fill-current animate-bounce" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-[#2B2A25]">
+                    Горящие и эскалированные задачи на контроле ({escalatedTasks.length})
+                  </h2>
+                  <p className="text-xs text-[#8C8577]">
+                    Срочные риски штрафов или невыхода клиента на связь, переданные руководителю
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {escalatedTasks.map((t) => (
+                <div
+                  key={t.id}
+                  className="p-4 rounded-xl border border-[#DD6B60]/40 bg-[#FCE6E3]/20 flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#DD6B60] text-white">
+                        Эскалация
+                      </span>
+                      <span className="text-xs font-mono font-bold text-[#DD6B60]">
+                        Дедлайн: {t.due_date}
+                      </span>
+                    </div>
+
+                    <h3 className="text-sm font-bold text-[#2B2A25] mb-1 leading-snug">
+                      {t.doc_type}
+                    </h3>
+                    <p className="text-xs text-[#5FA07A] font-semibold mb-2">
+                      {t.company?.name || 'Компания'} (ИНН {t.company?.inn})
+                    </p>
+
+                    <div className="p-2.5 rounded-lg bg-white border border-[#DD6B60]/30 text-xs text-[#DD6B60] mb-3">
+                      <strong>Причина: </strong>
+                      <span>{t.escalation_reason || 'Требуется срочное решение руководителя'}</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-[#DD6B60]/20 flex items-center justify-between gap-2">
+                    {t.company?.phone ? (
+                      <a
+                        href={formatWhatsAppUrl(
+                          t.company.phone,
+                          `Здравствуйте! Беспокоит руководство бухгалтерского агентства «Учётка» по компании ${t.company.name}. Срочный вопрос по отчету ${t.doc_type}.`
+                        )}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#25D366] text-white text-[11px] font-semibold hover:bg-[#20ba59]"
+                      >
+                        <MessageCircle className="w-3.5 h-3.5" />
+                        <span>Написать клиенту</span>
+                      </a>
+                    ) : (
+                      <span className="text-[11px] text-[#8C8577]">Нет телефона</span>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => handleResolveEscalation(t)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[#5FA07A] bg-white text-[#5FA07A] text-[11px] font-semibold hover:bg-[#E7F3EB]"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Снять контроль</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
 
       {/* Main Table: Accountants workload and real-time status */}
       <div className="bg-white border border-[#EAE3D6] rounded-[10px] p-6 mb-8">
@@ -341,19 +514,42 @@ export const ManagerPage: React.FC = () => {
       </div>
 
       <section className="mb-8">
-        <div className="mb-4">
-          <h2 className="text-base font-bold text-[#2B2A25]">Профили и работа бухгалтеров</h2>
-          <p className="text-xs text-[#8C8577] mt-1">
-            Откройте профиль сотрудника, чтобы посмотреть его компании и задачи.
-          </p>
+        <div className="mb-4 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+          <div>
+            <h2 className="text-base font-bold text-[#2B2A25]">Профили и работа бухгалтеров</h2>
+            <p className="text-xs text-[#8C8577] mt-1">
+              Фильтруйте компании, задачи и загруженные документы по сотруднику.
+            </p>
+          </div>
+          <select
+            value={selectedAccountantId}
+            onChange={(event) => setSelectedAccountantId(event.target.value)}
+            className="min-w-56 px-3 py-2 text-xs border border-[#EAE3D6] rounded-[8px] bg-white"
+            aria-label="Фильтр по бухгалтеру"
+          >
+            <option value="">Все бухгалтеры</option>
+            {accountantStats.map((stat) => (
+              <option key={stat.accountant.id} value={stat.accountant.id}>
+                {stat.accountant.full_name}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="space-y-3">
-          {accountantStats.map((stat) => {
+          {visibleAccountantStats.map((stat) => {
             const employeeCompanies = companies.filter(
               (company) => company.owner_id === stat.accountant.id
             );
             const employeeCompanyIds = new Set(employeeCompanies.map((company) => company.id));
-            const employeeTasks = tasks.filter((task) => employeeCompanyIds.has(task.company_id));
+            const employeeTasks = tasks.filter((task) => task.assignments?.length
+              ? task.assignments.some(
+                  (assignment) => assignment.assignment_role === 'executor' && assignment.user_id === stat.accountant.id
+                )
+              : employeeCompanyIds.has(task.company_id));
+            const employeeDocuments = documents.filter(
+              (document) => document.created_by === stat.accountant.id
+                || employeeCompanyIds.has(document.company_id)
+            );
 
             return (
               <details key={stat.accountant.id} className="bg-white border border-[#EAE3D6] rounded-[10px] group">
@@ -375,6 +571,9 @@ export const ManagerPage: React.FC = () => {
                     </span>
                     <span className="px-2.5 py-1 rounded-[6px] bg-[#FAF8F5]">
                       {employeeTasks.length} задач
+                    </span>
+                    <span className="px-2.5 py-1 rounded-[6px] bg-[#FAF8F5]">
+                      {employeeDocuments.length} документов
                     </span>
                     <span className="text-[#5FA07A] group-open:rotate-90 transition-transform">›</span>
                   </div>
@@ -440,6 +639,34 @@ export const ManagerPage: React.FC = () => {
                       </div>
                     )}
                   </div>
+
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-wide text-[#8C8577] mb-2">
+                      Загруженные документы
+                    </h3>
+                    {employeeDocuments.length === 0 ? (
+                      <p className="text-xs text-[#8C8577]">Сотрудник пока не загружал документы.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {employeeDocuments.map((document) => (
+                          <Link
+                            key={document.id}
+                            to={`/companies/${document.company_id}`}
+                            className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-[8px] bg-[#FAF8F5] hover:bg-[#E7F3EB] transition text-xs"
+                          >
+                            <span>
+                              <strong className="text-[#2B2A25]">{document.title}</strong>
+                              <span className="block text-[#8C8577]">
+                                {document.company?.name || companies.find((company) => company.id === document.company_id)?.name}
+                                {' · '}получен {formatDateRu(document.received_at, 'd MMM yyyy')}
+                              </span>
+                            </span>
+                            <span className="text-[#6B6558]">{document.received_address}</span>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </details>
             );
@@ -449,7 +676,7 @@ export const ManagerPage: React.FC = () => {
 
       {/* Overdue Items Alert Section */}
       {overdueTasks.length > 0 && (
-        <div className="bg-white border border-[#DD6B60]/40 rounded-[10px] p-6">
+        <div className="bg-white border border-[#DD6B60]/40 rounded-[10px] p-6 mb-8">
           <div className="flex items-center gap-2 mb-3 text-[#DD6B60]">
             <AlertCircle className="w-5 h-5" />
             <h2 className="text-base font-bold">
@@ -494,6 +721,120 @@ export const ManagerPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Agency Audit Trail & History (Item 8 from prompt) */}
+      <div className="bg-white border border-[#EAE3D6] rounded-2xl p-6 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 mb-4 border-b border-[#EAE3D6]">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-[#E7F3EB] text-[#5FA07A] flex items-center justify-center">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-[#2B2A25]">
+                История действий команды (Audit Trail)
+              </h2>
+              <p className="text-xs text-[#8C8577]">
+                Кто, что и когда сделал: фиксация сдачи отчётов, статусов и напоминаний для подтверждения клиентам и УГНС
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {activityLogs.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  const csv = exportActivityLogsToCsv(activityLogs);
+                  downloadCsvFile(csv, `agency_audit_trail_${new Date().toISOString().split('T')[0]}.csv`);
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#EAE3D6] bg-white text-xs font-semibold text-[#2B2A25] hover:bg-[#FAF8F5] transition shadow-sm"
+              >
+                <Download className="w-3.5 h-3.5 text-[#5FA07A]" />
+                <span>Выгрузить CSV для проверок</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Filter categories */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-2 mb-4 scrollbar-none text-xs">
+          {[
+            { id: 'all', label: 'Все события' },
+            { id: 'escalate', label: 'Эскалации' },
+            { id: 'send_reminder', label: 'Напоминания клиентам' },
+            { id: 'status_change', label: 'Смена статусов' },
+            { id: 'document_upload', label: 'Загрузка документов' },
+            { id: 'generate_year_calendar', label: 'Генерация календаря' },
+            { id: 'import_batch', label: 'Импорт' },
+          ].map((flt) => (
+            <button
+              key={flt.id}
+              type="button"
+              onClick={() => setAuditFilter(flt.id)}
+              className={`px-3 py-1.5 rounded-lg font-semibold whitespace-nowrap transition ${
+                auditFilter === flt.id
+                  ? 'bg-[#5FA07A] text-white shadow-sm'
+                  : 'bg-[#FAF8F5] border border-[#EAE3D6] text-[#8C8577] hover:text-[#2B2A25]'
+              }`}
+            >
+              {flt.label}
+            </button>
+          ))}
+        </div>
+
+        {activityLogs.length === 0 ? (
+          <p className="text-xs text-[#8C8577] text-center py-8">
+            Журнал действий пока пуст. Все операции сотрудников будут автоматически протоколироваться здесь.
+          </p>
+        ) : (
+          <div className="overflow-x-auto max-h-[450px]">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-[#EAE3D6] bg-[#FAF8F5] text-[#8C8577] text-[11px]">
+                  <th className="py-2.5 px-4 font-semibold">Дата и время</th>
+                  <th className="py-2.5 px-4 font-semibold">Сотрудник</th>
+                  <th className="py-2.5 px-4 font-semibold">Тип действия</th>
+                  <th className="py-2.5 px-4 font-semibold">Компания</th>
+                  <th className="py-2.5 px-4 font-semibold">Описание события</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#EAE3D6]">
+                {activityLogs
+                  .filter((l) => auditFilter === 'all' || l.action_type === auditFilter)
+                  .map((log) => (
+                    <tr key={log.id} className="hover:bg-[#FAF8F5] transition">
+                      <td className="py-2.5 px-4 text-[#8C8577] font-mono whitespace-nowrap">
+                        {new Date(log.created_at).toLocaleString('ru-RU')}
+                      </td>
+                      <td className="py-2.5 px-4 font-semibold text-[#2B2A25] whitespace-nowrap">
+                        {log.user_name}
+                      </td>
+                      <td className="py-2.5 px-4 whitespace-nowrap">
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            log.action_type === 'escalate'
+                              ? 'bg-[#FCE6E3] text-[#DD6B60]'
+                              : log.action_type === 'send_reminder'
+                              ? 'bg-[#25D366]/10 text-[#128C7E]'
+                              : 'bg-[#E7F3EB] text-[#5FA07A]'
+                          }`}
+                        >
+                          {log.action_type}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-4 text-[#2B2A25] font-medium whitespace-nowrap">
+                        {log.company_name || '—'}
+                      </td>
+                      <td className="py-2.5 px-4 text-[#2B2A25] leading-relaxed">
+                        {log.description}
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
