@@ -128,6 +128,7 @@ RETURNS BOOLEAN AS $$
 $$ LANGUAGE sql SECURITY DEFINER STABLE;
 
 -- 1. tax_types: Все авторизованные пользователи могут читать справочник
+DROP POLICY IF EXISTS "Allow read tax_types for authenticated users" ON public.tax_types;
 CREATE POLICY "Allow read tax_types for authenticated users"
     ON public.tax_types FOR SELECT
     TO authenticated
@@ -135,11 +136,13 @@ CREATE POLICY "Allow read tax_types for authenticated users"
 
 -- 2. users:
 -- Бухгалтер видит свой профиль; руководитель видит профили всех бухгалтеров для управления
+DROP POLICY IF EXISTS "Users can read own profile or manager can read all" ON public.users;
 CREATE POLICY "Users can read own profile or manager can read all"
     ON public.users FOR SELECT
     TO authenticated
     USING (id = auth.uid() OR public.is_manager());
 
+DROP POLICY IF EXISTS "Users can update own profile" ON public.users;
 CREATE POLICY "Users can update own profile"
     ON public.users FOR UPDATE
     TO authenticated
@@ -148,22 +151,26 @@ CREATE POLICY "Users can update own profile"
 -- 3. companies:
 -- Бухгалтер видит и редактирует только свои компании (owner_id = auth.uid());
 -- Руководитель видит и может создавать/редактировать все компании.
+DROP POLICY IF EXISTS "Companies select policy" ON public.companies;
 CREATE POLICY "Companies select policy"
     ON public.companies FOR SELECT
     TO authenticated
     USING (owner_id = auth.uid() OR public.is_manager());
 
+DROP POLICY IF EXISTS "Companies insert policy" ON public.companies;
 CREATE POLICY "Companies insert policy"
     ON public.companies FOR INSERT
     TO authenticated
     WITH CHECK (owner_id = auth.uid() OR public.is_manager());
 
+DROP POLICY IF EXISTS "Companies update policy" ON public.companies;
 CREATE POLICY "Companies update policy"
     ON public.companies FOR UPDATE
     TO authenticated
     USING (owner_id = auth.uid() OR public.is_manager())
     WITH CHECK (owner_id = auth.uid() OR public.is_manager());
 
+DROP POLICY IF EXISTS "Companies delete policy" ON public.companies;
 CREATE POLICY "Companies delete policy"
     ON public.companies FOR DELETE
     TO authenticated
@@ -172,6 +179,7 @@ CREATE POLICY "Companies delete policy"
 -- 4. tasks:
 -- Бухгалтер видит и редактирует задачи по компаниям, которыми владеет.
 -- Руководитель видит и может изменять все задачи.
+DROP POLICY IF EXISTS "Tasks select policy" ON public.tasks;
 CREATE POLICY "Tasks select policy"
     ON public.tasks FOR SELECT
     TO authenticated
@@ -182,6 +190,7 @@ CREATE POLICY "Tasks select policy"
         )
     );
 
+DROP POLICY IF EXISTS "Tasks insert policy" ON public.tasks;
 CREATE POLICY "Tasks insert policy"
     ON public.tasks FOR INSERT
     TO authenticated
@@ -192,6 +201,7 @@ CREATE POLICY "Tasks insert policy"
         )
     );
 
+DROP POLICY IF EXISTS "Tasks update policy" ON public.tasks;
 CREATE POLICY "Tasks update policy"
     ON public.tasks FOR UPDATE
     TO authenticated
@@ -208,6 +218,7 @@ CREATE POLICY "Tasks update policy"
         )
     );
 
+DROP POLICY IF EXISTS "Tasks delete policy" ON public.tasks;
 CREATE POLICY "Tasks delete policy"
     ON public.tasks FOR DELETE
     TO authenticated
@@ -220,11 +231,13 @@ CREATE POLICY "Tasks delete policy"
 
 -- 5. notifications:
 -- Пользователь видит и обновляет только свои уведомления
+DROP POLICY IF EXISTS "Notifications select policy" ON public.notifications;
 CREATE POLICY "Notifications select policy"
     ON public.notifications FOR SELECT
     TO authenticated
     USING (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "Notifications update policy" ON public.notifications;
 CREATE POLICY "Notifications update policy"
     ON public.notifications FOR UPDATE
     TO authenticated
