@@ -55,7 +55,7 @@ export const MobileBottomNav: React.FC = () => {
     <>
       {/* Quick Actions Bottom Sheet Overlay */}
       {showQuickMenu && (
-        <div className="fixed inset-0 z-50 md:hidden flex flex-col justify-end bg-black/40 backdrop-blur-sm animate-fade-in">
+        <div className="fixed inset-0 z-50 xl:hidden flex flex-col justify-end bg-black/40 backdrop-blur-sm animate-fade-in">
           <div
             className="bg-white rounded-t-2xl p-5 shadow-2xl border-t border-[#EAE3D6] space-y-3 pb-8"
             onClick={(e) => e.stopPropagation()}
@@ -112,8 +112,8 @@ export const MobileBottomNav: React.FC = () => {
       )}
 
       {/* Bottom Sticky Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-white/95 backdrop-blur-md border-t border-[#EAE3D6] shadow-[0_-2px_10px_rgba(0,0,0,0.03)] px-3 py-1.5 safe-bottom">
-        <div className="flex items-center justify-around">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 xl:hidden bg-white/95 backdrop-blur-md border-t border-[#EAE3D6] shadow-[0_-2px_10px_rgba(0,0,0,0.03)] px-3 py-1.5 safe-bottom">
+        <div className="mx-auto flex max-w-xl items-center justify-around">
           {/* Left item 1: Dashboard */}
           <Link
             to={navItems[0].to}

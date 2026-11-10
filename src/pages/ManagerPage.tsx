@@ -171,8 +171,8 @@ export const ManagerPage: React.FC = () => {
       {/* Page Header with Realtime Pulse Badge */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-[#2B2A25] tracking-tight">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <h1 className="text-xl sm:text-2xl font-bold text-[#2B2A25] tracking-tight">
               Панель руководителя агентства
             </h1>
             <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] bg-[#E7F3EB] border border-[#5FA07A]/30 text-xs font-medium text-[#5FA07A]">
@@ -185,9 +185,6 @@ export const ManagerPage: React.FC = () => {
               )}
             </div>
           </div>
-          <p className="text-xs text-[#8C8577] mt-1">
-            Оперативный контроль загрузки бухгалтеров, своевременности сдачи отчетности и клиентов
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">

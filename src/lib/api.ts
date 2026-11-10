@@ -445,7 +445,8 @@ export async function getCompanies(ownerId?: string): Promise<Company[]> {
     let query = supabase.from('companies').select(`
       *,
       tax_type:tax_types (*),
-      owner:users (*)
+      owner:users!companies_owner_id_fkey (*),
+      curator:users!companies_curator_id_fkey (*)
     `).order('name');
 
     if (ownerId) {
@@ -480,7 +481,8 @@ export async function getCompanyById(id: string): Promise<Company | null> {
       .select(`
         *,
         tax_type:tax_types (*),
-        owner:users (*)
+        owner:users!companies_owner_id_fkey (*),
+        curator:users!companies_curator_id_fkey (*)
       `)
       .eq('id', id)
       .single();
@@ -500,7 +502,12 @@ export async function createCompany(
     const { data, error } = await supabase
       .from('companies')
       .insert(company)
-      .select(`*, tax_type:tax_types (*), owner:users (*)`)
+      .select(`
+        *,
+        tax_type:tax_types (*),
+        owner:users!companies_owner_id_fkey (*),
+        curator:users!companies_curator_id_fkey (*)
+      `)
       .single();
 
     if (error) throw error;
@@ -532,7 +539,12 @@ export async function updateCompany(
       .from('companies')
       .update(updates)
       .eq('id', id)
-      .select(`*, tax_type:tax_types (*), owner:users (*)`)
+      .select(`
+        *,
+        tax_type:tax_types (*),
+        owner:users!companies_owner_id_fkey (*),
+        curator:users!companies_curator_id_fkey (*)
+      `)
       .single();
 
     if (error) throw error;
@@ -586,11 +598,12 @@ export async function getTasks(options?: {
       assignments:task_assignees (
         user_id,
         assignment_role,
-        user:users (*)
+        user:users!task_assignees_user_id_fkey (*)
       ),
-      company:companies (
+      company:companies!tasks_company_id_fkey (
         *,
-        owner:users (*)
+        owner:users!companies_owner_id_fkey (*),
+        curator:users!companies_curator_id_fkey (*)
       )
     `).order('due_date', { ascending: true });
 
@@ -655,7 +668,14 @@ export async function createTask(
         wait_until: task.wait_until || null,
         notes: task.notes || null,
       })
-      .select(`*, company:companies (*, owner:users (*))`)
+      .select(`
+        *,
+        company:companies!tasks_company_id_fkey (
+          *,
+          owner:users!companies_owner_id_fkey (*),
+          curator:users!companies_curator_id_fkey (*)
+        )
+      `)
       .single();
 
     if (error) throw error;
@@ -752,7 +772,14 @@ export async function updateTask(
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)
-      .select(`*, company:companies (*, owner:users (*))`)
+      .select(`
+        *,
+        company:companies!tasks_company_id_fkey (
+          *,
+          owner:users!companies_owner_id_fkey (*),
+          curator:users!companies_curator_id_fkey (*)
+        )
+      `)
       .single();
 
     if (error) throw error;

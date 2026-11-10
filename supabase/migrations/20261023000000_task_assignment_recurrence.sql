@@ -212,6 +212,7 @@ $$;
 REVOKE ALL ON FUNCTION public.current_user_manager_id() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.current_user_manager_id() TO authenticated;
 
+DROP POLICY IF EXISTS "Users can read team profiles" ON public.users;
 CREATE POLICY "Users can read team profiles"
     ON public.users FOR SELECT TO authenticated
     USING (

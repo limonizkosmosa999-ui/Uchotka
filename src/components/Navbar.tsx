@@ -118,20 +118,20 @@ export const Navbar: React.FC = () => {
             </Link>
 
             {/* Navigation tabs */}
-            <nav className="hidden md:flex items-center gap-1.5">
+            <nav className="hidden xl:flex items-center gap-1">
               {navLinks.map((item) => {
                 const Icon = item.icon;
                 return (
                   <Link
                     key={item.to}
                     to={item.to}
-                    className={`flex items-center gap-2 px-3.5 py-2 rounded-[10px] text-sm font-medium transition ${
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-[10px] text-xs font-medium whitespace-nowrap transition ${
                       item.active
                         ? 'bg-[#E7F3EB] text-[#5FA07A]'
                         : 'text-[#2B2A25] hover:bg-[#FAF8F5] hover:text-[#5FA07A]'
                     }`}
                   >
-                    <Icon className="w-4 h-4" />
+                    <Icon className="w-4 h-4 flex-shrink-0" />
                     <span>{item.label}</span>
                   </Link>
                 );
@@ -140,29 +140,29 @@ export const Navbar: React.FC = () => {
           </div>
 
           {/* Action CTAs & User Controls */}
-          <div className="flex items-center gap-3">
+          <div className="flex min-w-0 items-center gap-1.5 sm:gap-2 xl:gap-3">
             {/* Quick Create Buttons */}
-            <div className="hidden sm:flex items-center gap-2">
+            <div className="hidden xl:flex items-center gap-1.5">
               <Link
                 to="/companies/new"
-                className="flex items-center gap-1.5 px-3 py-2 rounded-[10px] text-xs font-medium border border-[#EAE3D6] text-[#2B2A25] bg-white hover:bg-[#FAF8F5] transition"
+                className="inline-flex items-center gap-1.5 whitespace-nowrap px-2.5 py-2 rounded-[10px] text-xs font-medium border border-[#EAE3D6] text-[#2B2A25] bg-white hover:bg-[#FAF8F5] transition"
               >
-                <PlusCircle className="w-3.5 h-3.5 text-[#8C8577]" />
-                <span>+ Компания</span>
+                <PlusCircle className="w-4 h-4 flex-shrink-0 text-[#8C8577]" />
+                <span>Компания</span>
               </Link>
               <Link
                 to="/import"
-                className="flex items-center gap-1.5 px-3 py-2 rounded-[10px] text-xs font-medium border border-[#EAE3D6] text-[#2B2A25] bg-white hover:bg-[#FAF8F5] transition"
+                className="inline-flex items-center gap-1.5 whitespace-nowrap px-2.5 py-2 rounded-[10px] text-xs font-medium border border-[#EAE3D6] text-[#2B2A25] bg-white hover:bg-[#FAF8F5] transition"
               >
-                <FileSpreadsheet className="w-3.5 h-3.5 text-[#8C8577]" />
+                <FileSpreadsheet className="w-4 h-4 flex-shrink-0 text-[#8C8577]" />
                 <span>Импорт</span>
               </Link>
               <Link
                 to="/tasks/new"
-                className="flex items-center gap-1.5 px-3 py-2 rounded-[10px] text-xs font-medium text-white bg-[#5FA07A] hover:bg-[#528E6B] transition shadow-none"
+                className="inline-flex items-center gap-1.5 whitespace-nowrap px-2.5 py-2 rounded-[10px] text-xs font-medium text-white bg-[#5FA07A] hover:bg-[#528E6B] transition shadow-none"
               >
-                <PlusCircle className="w-3.5 h-3.5" />
-                <span>+ Задача</span>
+                <PlusCircle className="w-4 h-4 flex-shrink-0" />
+                <span>Задача</span>
               </Link>
             </div>
 
@@ -171,10 +171,10 @@ export const Navbar: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowNotifMenu(!showNotifMenu)}
-                className="relative p-2 rounded-[10px] text-[#8C8577] hover:text-[#2B2A25] hover:bg-[#FAF8F5] transition"
+                className="relative inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[10px] text-[#8C8577] hover:text-[#2B2A25] hover:bg-[#FAF8F5] transition"
                 title="Уведомления"
               >
-                <Bell className="w-5 h-5" />
+                <Bell className="w-4 h-4" />
                 {unreadCount > 0 && (
                   <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-[#DD6B60] text-white text-[10px] font-bold flex items-center justify-center">
                     {unreadCount}
@@ -236,22 +236,22 @@ export const Navbar: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowUserMenu(!showUserMenu)}
-                className="flex items-center gap-2 p-1.5 pl-2.5 rounded-[10px] border border-[#EAE3D6] hover:bg-[#FAF8F5] transition"
+                className="inline-flex max-w-[min(48vw,260px)] flex-shrink-0 items-center gap-1.5 sm:gap-2 p-1.5 sm:pl-2.5 rounded-[10px] border border-[#EAE3D6] hover:bg-[#FAF8F5] transition"
               >
                 <div className="text-left hidden sm:block">
-                  <div className="text-sm font-semibold text-[#2B2A25] leading-tight">
+                  <div className="max-w-36 truncate text-xs font-semibold text-[#2B2A25] leading-tight">
                     {user?.full_name || 'Сотрудник'}
                   </div>
-                  <div className="text-xs text-[#8C8577]">
+                  <div className="text-[11px] text-[#8C8577]">
                     {isManager ? 'Руководитель' : 'Бухгалтер'}
                   </div>
                 </div>
-                <div className={`w-8 h-8 rounded-[8px] flex items-center justify-center font-bold text-xs ${
+                <div className={`w-8 h-8 flex-shrink-0 rounded-[8px] flex items-center justify-center font-bold text-xs ${
                   isManager ? 'bg-[#FBEBD9] text-[#DB8A3C]' : 'bg-[#E7F3EB] text-[#5FA07A]'
                 }`}>
                   {user?.full_name?.charAt(0) || 'Б'}
                 </div>
-                <ChevronDown className="w-3.5 h-3.5 text-[#8C8577]" />
+                <ChevronDown className="w-4 h-4 flex-shrink-0 text-[#8C8577]" />
               </button>
 
               {showUserMenu && (

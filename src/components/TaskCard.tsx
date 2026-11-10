@@ -12,7 +12,6 @@ import {
   X,
   MessageCircle,
   Flame,
-  ShieldAlert,
 } from 'lucide-react';
 import { Task, TaskStatus } from '../types';
 import { formatDateRu, getUrgencyBadge, getDaysLeftText } from '../lib/dateUtils';
@@ -595,4 +594,3 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     </>
   );
 };
-

@@ -35,7 +35,7 @@ const ProtectedRoute: React.FC<{
   return (
     <div className="min-h-screen flex flex-col bg-[#FAF8F5]">
       <Navbar />
-      <div className="flex-1 pb-16 md:pb-0">{children}</div>
+      <div className="flex-1 pb-16 xl:pb-0">{children}</div>
       <MobileBottomNav />
     </div>
   );
