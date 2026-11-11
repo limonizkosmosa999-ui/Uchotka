@@ -59,12 +59,12 @@ BEGIN
 
     INSERT INTO public.tax_types (name, rate_description)
     VALUES
-        ('Единый налог', 'Демонстрационный налоговый режим'),
-        ('Общий режим', 'Демонстрационный налоговый режим')
+        ('Упрощенная система налогообложения на основе единого налога', 'Демонстрационный налоговый режим'),
+        ('Общий налоговый режим', 'Демонстрационный налоговый режим')
     ON CONFLICT (name) DO NOTHING;
 
-    SELECT id INTO simplified_tax_id FROM public.tax_types WHERE name = 'Единый налог';
-    SELECT id INTO general_tax_id FROM public.tax_types WHERE name = 'Общий режим';
+    SELECT id INTO simplified_tax_id FROM public.tax_types WHERE name = 'Упрощенная система налогообложения на основе единого налога';
+    SELECT id INTO general_tax_id FROM public.tax_types WHERE name = 'Общий налоговый режим';
 
     FOR demo_account IN
         SELECT *

@@ -1,9 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Building, ArrowLeft, Percent, Check, AlertCircle } from 'lucide-react';
+import { Building, ArrowLeft, Percent, AlertCircle } from 'lucide-react';
 import { getTaxTypes, createCompany, getAllUsers } from '../lib/api';
-import { TaxType, ClientType, UserProfile } from '../types';
+import { MOCK_TAX_TYPES } from '../lib/mockData';
+import { CLIENT_TYPE_GROUPS, TaxType, ClientType, UserProfile } from '../types';
 import { useAuth } from '../context/AuthContext';
+
+const TAX_TYPE_ALIASES: Record<string, string> = {
+  'Общий режим': 'Общий налоговый режим',
+  'Единый налог': 'Упрощенная система налогообложения на основе единого налога',
+  'Патентная система / Специальный режим': 'Налог на основе патента',
+};
+
+function canonicalTaxTypeName(name: string): string {
+  return TAX_TYPE_ALIASES[name] || name;
+}
 
 export const CompanyNewPage: React.FC = () => {
   const navigate = useNavigate();
@@ -16,7 +27,7 @@ export const CompanyNewPage: React.FC = () => {
   const [name, setName] = useState('');
   const [inn, setInn] = useState('');
   const [clientType, setClientType] = useState<ClientType>('ОсОО');
-  const [taxTypeId, setTaxTypeId] = useState<string>('');
+  const [taxTypeName, setTaxTypeName] = useState('Общий налоговый режим');
   const [ownerId, setOwnerId] = useState<string>(user?.id || '');
   const [taxOfficeDistrict, setTaxOfficeDistrict] = useState('');
   const [curatorId, setCuratorId] = useState(user?.role === 'accountant' ? user.id : '');
@@ -30,9 +41,8 @@ export const CompanyNewPage: React.FC = () => {
   useEffect(() => {
     getTaxTypes().then((types) => {
       setTaxTypes(types);
-      if (types.length > 0) {
-        setTaxTypeId(types[0].id);
-      }
+    }).catch((err: Error) => {
+      setError(`Не удалось загрузить налоговые режимы: ${err.message}`);
     });
 
     if (isManager) {
@@ -45,8 +55,14 @@ export const CompanyNewPage: React.FC = () => {
     }
   }, [isManager, ownerId]);
 
-  // Selected tax type info for auto-fill description
-  const selectedTax = taxTypes.find((t) => t.id === taxTypeId);
+  const selectedTaxRecord = taxTypes.find(
+    (tax) => canonicalTaxTypeName(tax.name) === taxTypeName
+  );
+  const selectedTax = selectedTaxRecord
+    || MOCK_TAX_TYPES.find((tax) => tax.name === taxTypeName);
+  const extraTaxTypes = taxTypes.filter(
+    (tax) => !MOCK_TAX_TYPES.some((known) => known.name === canonicalTaxTypeName(tax.name))
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,6 +76,13 @@ export const CompanyNewPage: React.FC = () => {
       setError('Укажите ИНН');
       return;
     }
+    if (!selectedTaxRecord) {
+      setError(
+        `Режим «${taxTypeName}» показан в списке, но ещё не добавлен в базу Supabase. ` +
+        'Выполните миграцию supabase/migrations/20261111000000_expand_company_and_tax_types.sql.'
+      );
+      return;
+    }
 
     setLoading(true);
     try {
@@ -67,7 +90,7 @@ export const CompanyNewPage: React.FC = () => {
         name: name.trim(),
         inn: inn.trim(),
         client_type: clientType,
-        tax_type_id: taxTypeId,
+        tax_type_id: selectedTaxRecord.id,
         tax_office_district: taxOfficeDistrict.trim() || null,
         curator_id: curatorId || null,
         owner_id: ownerId || user?.id || '',
@@ -118,28 +141,23 @@ export const CompanyNewPage: React.FC = () => {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Client Type Selector */}
           <div>
             <label className="block text-xs font-semibold text-[#2B2A25] mb-2">
               Тип клиента (Организационно-правовая форма)
             </label>
-            <div className="grid grid-cols-2 gap-3">
-              {(['ИП', 'ОсОО', 'ОО', 'ОФ'] as ClientType[]).map((type) => (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => setClientType(type)}
-                  className={`p-3 rounded-[10px] border text-xs font-medium text-center transition flex items-center justify-center gap-2 ${
-                    clientType === type
-                      ? 'bg-[#FBEBD9] border-[#DB8A3C] text-[#DB8A3C] font-semibold'
-                      : 'border-[#EAE3D6] text-[#2B2A25] hover:bg-[#FAF8F5]'
-                  }`}
-                >
-                  <span>{type}</span>
-                  {clientType === type && <Check className="w-3.5 h-3.5" />}
-                </button>
+            <select
+              value={clientType}
+              onChange={(e) => setClientType(e.target.value as ClientType)}
+              className="w-full px-3 py-2 text-xs bg-white border border-[#EAE3D6] rounded-[8px] focus:outline-none focus:border-[#5FA07A] text-[#2B2A25]"
+            >
+              {CLIENT_TYPE_GROUPS.map((group) => (
+                <optgroup key={group.label} label={group.label}>
+                  {group.types.map((type) => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                </optgroup>
               ))}
-            </div>
+            </select>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -179,14 +197,14 @@ export const CompanyNewPage: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-[#2B2A25] mb-1">
-                Наименование {clientType === 'ОсОО' ? 'компании' : 'ИП'} *
+                Наименование {clientType === 'ИП' ? 'ИП' : 'организации'} *
               </label>
               <input
                 type="text"
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder={clientType === 'ОсОО' ? 'ОсОО «Ала-Тоо Трейд»' : 'ИП Смирнов А. В.'}
+                placeholder={clientType === 'ИП' ? 'ИП Смирнов А. В.' : `${clientType} «Ала-Тоо Трейд»`}
                 className="w-full px-3 py-2 text-xs bg-white border border-[#EAE3D6] rounded-[8px] focus:outline-none focus:border-[#5FA07A]"
               />
             </div>
@@ -213,12 +231,17 @@ export const CompanyNewPage: React.FC = () => {
               Система налогообложения *
             </label>
             <select
-              value={taxTypeId}
-              onChange={(e) => setTaxTypeId(e.target.value)}
+              value={taxTypeName}
+              onChange={(e) => setTaxTypeName(e.target.value)}
               className="w-full px-3 py-2 text-xs bg-white border border-[#EAE3D6] rounded-[8px] focus:outline-none focus:border-[#5FA07A] text-[#2B2A25]"
             >
-              {taxTypes.map((tax) => (
-                <option key={tax.id} value={tax.id}>
+              {MOCK_TAX_TYPES.map((tax) => (
+                <option key={tax.name} value={tax.name}>
+                  {tax.name}
+                </option>
+              ))}
+              {extraTaxTypes.map((tax) => (
+                <option key={tax.id} value={canonicalTaxTypeName(tax.name)}>
                   {tax.name}
                 </option>
               ))}

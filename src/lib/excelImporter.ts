@@ -252,8 +252,30 @@ export function validateImportRows(rawRows: RawImportRow[]): ValidatedImportItem
     const rawType = (row.client_type || '').toUpperCase();
     if (rawType.includes('ИП')) {
       clientType = 'ИП';
+    } else if (rawType.includes('ОСДО') || rawType.includes('ДОПОЛНИТЕЛЬНОЙ ОТВЕТСТВЕННОСТЬЮ')) {
+      clientType = 'Общество с дополнительной ответственностью (ОсДО)';
+    } else if (rawType.includes('ОАО') || rawType.includes('ОТКРЫТОЕ АКЦИОНЕРНОЕ ОБЩЕСТВО')) {
+      clientType = 'Открытое акционерное общество (ОАО)';
+    } else if (rawType.includes('ЗАО') || rawType.includes('ЗАКРЫТОЕ АКЦИОНЕРНОЕ ОБЩЕСТВО')) {
+      clientType = 'Закрытое акционерное общество (ЗАО)';
+    } else if (rawType.includes('АКЦИОНЕРНОЕ ОБЩЕСТВО') || rawType.includes('(АО)')) {
+      clientType = 'Акционерное общество (АО)';
+    } else if (rawType.includes('КРЕСТЬЯНСК') || rawType.includes('ФЕРМЕРСК')) {
+      clientType = 'Крестьянское (фермерское) хозяйство (с образованием юридического лица)';
+    } else if (rawType.includes('ТСЖ') || rawType.includes('КОНДОМИНИУМ')) {
+      clientType = 'Товарищество собственников жилья (ТСЖ / кондоминиум)';
+    } else if (rawType.includes('ОБЪЕДИНЕНИЕ ЮРИДИЧЕСКИХ ЛИЦ') || rawType.includes('АССОЦИАЦИЯ') || rawType.includes('СОЮЗ')) {
+      clientType = 'Объединение юридических лиц (ассоциация, союз)';
+    } else if (rawType.includes('УЧРЕЖДЕНИЕ')) {
+      clientType = 'Учреждение';
+    } else if (rawType.includes('ОБЩЕСТВЕННЫЙ ФОНД')) {
+      clientType = 'Общественный фонд';
+    } else if (rawType.includes('ОБЩЕСТВЕННОЕ ОБЪЕДИНЕНИЕ')) {
+      clientType = 'Общественное объединение';
+    } else if (rawType.includes('ОБЩЕСТВО С ОГРАНИЧЕННОЙ ОТВЕТСТВЕННОСТЬЮ')) {
+      clientType = 'Общество с ограниченной ответственностью (ОсОО)';
     } else if (rawType.includes('ОСОО') || rawType.includes('ОСOO') || rawType.includes('ООО')) {
-      clientType = 'ОсОО';
+      clientType = 'Общество с ограниченной ответственностью (ОсОО)';
     } else if (rawType.includes('ОФ')) {
       clientType = 'ОФ';
     } else if (rawType.includes('ОО')) {

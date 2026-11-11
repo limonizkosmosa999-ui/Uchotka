@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { getCompanies, createCompanyTasks, getAllUsers } from '../lib/api';
 import { isSupabaseConfigured } from '../lib/supabase';
-import { ClientType, Company, TaskRecurrence, UserProfile } from '../types';
+import { CLIENT_TYPE_GROUPS, ClientType, Company, TaskRecurrence, UserProfile } from '../types';
 import { COMMON_DOC_TYPES } from '../lib/mockData';
 import { useAuth } from '../context/AuthContext';
 
@@ -241,7 +241,8 @@ export const TaskNewPage: React.FC = () => {
                   </select>
                   <select value={filterClientType} onChange={(e) => setFilterClientType(e.target.value as ClientType | '')} className="px-2 py-2 text-xs border border-[#D4C9B0] rounded-lg">
                     <option value="">Все формы</option>
-                    {(['ИП', 'ОсОО', 'ОО', 'ОФ'] as ClientType[]).map((type) => <option key={type} value={type}>{type}</option>)}
+                    {CLIENT_TYPE_GROUPS.flatMap((group) => group.types).map((type) => <option key={type} value={type}>{type}</option>)}
+                    {(['ОсОО', 'ОО', 'ОФ'] as ClientType[]).map((type) => <option key={type} value={type}>{type}</option>)}
                   </select>
                 </div>
                 <div className="flex items-center justify-between text-xs">

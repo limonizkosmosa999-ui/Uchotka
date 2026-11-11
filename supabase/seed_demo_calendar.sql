@@ -6,8 +6,8 @@ BEGIN;
 
 INSERT INTO public.tax_types (name, rate_description)
 VALUES
-    ('Единый налог', 'Демо-данные'),
-    ('Общий режим', 'Демо-данные')
+    ('Упрощенная система налогообложения на основе единого налога', 'Демо-данные'),
+    ('Общий налоговый режим', 'Демо-данные')
 ON CONFLICT (name) DO NOTHING;
 
 DO $$
@@ -39,11 +39,11 @@ BEGIN
 
     SELECT id INTO simplified_tax_id
     FROM public.tax_types
-    WHERE name = 'Единый налог';
+    WHERE name = 'Упрощенная система налогообложения на основе единого налога';
 
     SELECT id INTO general_tax_id
     FROM public.tax_types
-    WHERE name = 'Общий режим';
+    WHERE name = 'Общий налоговый режим';
 
     INSERT INTO public.companies (owner_id, name, inn, client_type, tax_type_id, notes)
     SELECT demo_user_id, sample.name, sample.inn, sample.client_type, sample.tax_type_id, sample.notes
