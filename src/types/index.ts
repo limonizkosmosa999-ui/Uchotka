@@ -89,6 +89,8 @@ export interface Task {
   notes?: string | null;
   recurrence_rule?: TaskRecurrence | null;
   recurrence_series_id?: string | null;
+  created_by?: string | null;
+  creator?: UserProfile;
   // Escalation fields
   is_escalated?: boolean;
   escalated_at?: string | null;
@@ -193,6 +195,8 @@ export interface TaxPackageTemplate {
 export type ActivityActionType =
   | 'create_task'
   | 'update_task'
+  | 'delete_task'
+  | 'assign_task'
   | 'status_change'
   | 'escalate'
   | 'resolve_escalation'
@@ -200,13 +204,14 @@ export type ActivityActionType =
   | 'document_upload'
   | 'company_create'
   | 'company_update'
+  | 'company_delete'
   | 'import_batch'
   | 'generate_year_calendar';
 
 export interface ActivityLog {
   id: string;
   created_at: string;
-  user_id: string;
+  user_id: string | null;
   user_name: string;
   action_type: ActivityActionType;
   description: string;

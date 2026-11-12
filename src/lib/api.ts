@@ -1,5 +1,5 @@
 import { supabase, isSupabaseConfigured, supabaseConfigError } from './supabase';
-import { Company, CompanyDocument, TaxType, Task, UserProfile, AppNotification } from '../types';
+import { ActivityActionType, ActivityLog, Company, CompanyDocument, TaxType, Task, TaskStatus, UserProfile, AppNotification } from '../types';
 import { MOCK_USERS, MOCK_TAX_TYPES, MOCK_COMPANIES, MOCK_TASKS, MOCK_NOTIFICATIONS } from './mockData';
 
 // Local storage keys for fallback/demo state
@@ -54,6 +54,28 @@ export function emitMockRealtimeEvent(table: string, eventType: string, record: 
       detail: { table, eventType, record },
     })
   );
+}
+
+function recordMockActivity(
+  actionType: ActivityActionType,
+  description: string,
+  details: Partial<Pick<ActivityLog, 'company_id' | 'company_name' | 'task_id' | 'doc_type' | 'meta'>> = {}
+) {
+  const user: UserProfile | null = JSON.parse(localStorage.getItem(LS_CURRENT_USER) || 'null');
+  const log: ActivityLog = {
+    id: `act-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    created_at: new Date().toISOString(),
+    user_id: user?.id || null,
+    user_name: user?.full_name || 'Система',
+    action_type: actionType,
+    description,
+    ...details,
+  };
+  const logs: ActivityLog[] = JSON.parse(localStorage.getItem('uchotka_activity_logs') || '[]');
+  logs.unshift(log);
+  if (logs.length > 500) logs.length = 500;
+  localStorage.setItem('uchotka_activity_logs', JSON.stringify(logs));
+  emitMockRealtimeEvent('activity_logs', 'INSERT', log);
 }
 
 // -------------------------------------------------------------
@@ -442,17 +464,15 @@ export async function createCompanyDocument(input: {
 
 export async function getCompanies(ownerId?: string): Promise<Company[]> {
   if (isSupabaseConfigured) {
-    let query = supabase.from('companies').select(`
+    const query = supabase.from('companies').select(`
       *,
       tax_type:tax_types (*),
       owner:users!companies_owner_id_fkey (*),
       curator:users!companies_curator_id_fkey (*)
     `).order('name');
 
-    if (ownerId) {
-      query = query.eq('owner_id', ownerId);
-    }
-
+    // RLS already restricts rows. Keep assigned companies visible even when
+    // the signed-in accountant is not the company owner.
     const { data, error } = await query;
     if (error) throw error;
     return data || [];
@@ -460,11 +480,18 @@ export async function getCompanies(ownerId?: string): Promise<Company[]> {
 
   // Mock
   const companies: Company[] = JSON.parse(localStorage.getItem(LS_COMPANIES) || '[]');
+  const tasks: Task[] = JSON.parse(localStorage.getItem(LS_TASKS) || '[]');
   const users: UserProfile[] = JSON.parse(localStorage.getItem(LS_USERS) || '[]');
 
   let filtered = companies;
   if (ownerId) {
-    filtered = filtered.filter((c) => c.owner_id === ownerId);
+    filtered = filtered.filter((company) =>
+      company.owner_id === ownerId
+      || tasks.some((task) =>
+        task.company_id === company.id
+        && task.assignments?.some((assignment) => assignment.user_id === ownerId)
+      )
+    );
   }
 
   return filtered.map((c) => ({
@@ -525,6 +552,10 @@ export async function createCompany(
   companies.unshift(newComp);
   localStorage.setItem(LS_COMPANIES, JSON.stringify(companies));
   emitMockRealtimeEvent('companies', 'INSERT', newComp);
+  recordMockActivity('company_create', `Добавлена компания «${newComp.name}».`, {
+    company_id: newComp.id,
+    company_name: newComp.name,
+  });
 
   const fullComp = await getCompanyById(newComp.id);
   return fullComp || newComp;
@@ -559,6 +590,10 @@ export async function updateCompany(
   companies[idx] = { ...companies[idx], ...updates };
   localStorage.setItem(LS_COMPANIES, JSON.stringify(companies));
   emitMockRealtimeEvent('companies', 'UPDATE', companies[idx]);
+  recordMockActivity('company_update', `Изменены данные компании «${companies[idx].name}».`, {
+    company_id: companies[idx].id,
+    company_name: companies[idx].name,
+  });
 
   const full = await getCompanyById(id);
   return full || companies[idx];
@@ -573,6 +608,7 @@ export async function deleteCompany(id: string): Promise<void> {
 
   // Mock
   let companies: Company[] = JSON.parse(localStorage.getItem(LS_COMPANIES) || '[]');
+  const deletedCompany = companies.find((company) => company.id === id);
   companies = companies.filter((c) => c.id !== id);
   localStorage.setItem(LS_COMPANIES, JSON.stringify(companies));
 
@@ -582,6 +618,12 @@ export async function deleteCompany(id: string): Promise<void> {
   localStorage.setItem(LS_TASKS, JSON.stringify(tasks));
 
   emitMockRealtimeEvent('companies', 'DELETE', { id });
+  if (deletedCompany) {
+    recordMockActivity('company_delete', `Удалена компания «${deletedCompany.name}».`, {
+      company_name: deletedCompany.name,
+      meta: { company_id: id },
+    });
+  }
 }
 
 // -------------------------------------------------------------
@@ -600,6 +642,7 @@ export async function getTasks(options?: {
         assignment_role,
         user:users!task_assignees_user_id_fkey (*)
       ),
+      creator:users!tasks_created_by_fkey (*),
       company:companies!tasks_company_id_fkey (
         *,
         owner:users!companies_owner_id_fkey (*),
@@ -614,14 +657,9 @@ export async function getTasks(options?: {
     const { data, error } = await query;
     if (error) throw error;
 
-    let result = (data || []) as Task[];
-    if (options?.ownerId) {
-      result = result.filter((task) =>
-        task.company?.owner_id === options.ownerId
-        || task.assignments?.some((assignment) => assignment.user_id === options.ownerId)
-      );
-    }
-    return result;
+    // Supabase RLS already limits this result to tasks visible to the signed-in user.
+    // Avoid re-filtering on nested relations, which may be omitted by relation-level RLS.
+    return (data || []) as Task[];
   }
 
   // Mock
@@ -670,6 +708,7 @@ export async function createTask(
       })
       .select(`
         *,
+        creator:users!tasks_created_by_fkey (*),
         company:companies!tasks_company_id_fkey (
           *,
           owner:users!companies_owner_id_fkey (*),
@@ -730,6 +769,7 @@ export async function createCompanyTasks(input: {
 
   const users: UserProfile[] = JSON.parse(localStorage.getItem(LS_USERS) || '[]');
   const tasks: Task[] = JSON.parse(localStorage.getItem(LS_TASKS) || '[]');
+  const notifications: AppNotification[] = JSON.parse(localStorage.getItem(LS_NOTIFICATIONS) || '[]');
   const idPrefix = `task-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const created: Task[] = companyIds.map((companyId, index) => ({
     ...task,
@@ -756,7 +796,52 @@ export async function createCompanyTasks(input: {
 
   tasks.unshift(...created);
   localStorage.setItem(LS_TASKS, JSON.stringify(tasks));
-  created.forEach((createdTask) => emitMockRealtimeEvent('tasks', 'INSERT', createdTask));
+  const assignmentNotifications: AppNotification[] = created.flatMap((createdTask) => [
+    ...executorIds.map((user_id) => ({
+      id: `notification-${createdTask.id}-${user_id}-executor`,
+      user_id,
+      task_id: createdTask.id,
+      message: `Вам назначена задача «${createdTask.doc_type}» как исполнитель. Срок: ${createdTask.due_date}.`,
+      is_read: false,
+      created_at: new Date().toISOString(),
+    })),
+    ...controllerIds.map((user_id) => ({
+      id: `notification-${createdTask.id}-${user_id}-controller`,
+      user_id,
+      task_id: createdTask.id,
+      message: `Вас назначили контролирующим по задаче «${createdTask.doc_type}». Срок: ${createdTask.due_date}.`,
+      is_read: false,
+      created_at: new Date().toISOString(),
+    })),
+  ]);
+  notifications.unshift(...assignmentNotifications);
+  localStorage.setItem(LS_NOTIFICATIONS, JSON.stringify(notifications));
+  created.forEach((createdTask) => {
+    emitMockRealtimeEvent('tasks', 'INSERT', createdTask);
+    const company = JSON.parse(localStorage.getItem(LS_COMPANIES) || '[]')
+      .find((item: Company) => item.id === createdTask.company_id) as Company | undefined;
+    recordMockActivity('create_task', `Создана задача «${createdTask.doc_type}».`, {
+      company_id: createdTask.company_id,
+      company_name: company?.name,
+      task_id: createdTask.id,
+      doc_type: createdTask.doc_type,
+    });
+    createdTask.assignments?.forEach((assignment) => {
+      const assignee = users.find((candidate) => candidate.id === assignment.user_id);
+      recordMockActivity('assign_task', `${assignee?.full_name || 'Сотрудник'} назначен(а) ${
+        assignment.assignment_role === 'executor' ? 'исполнителем' : 'контролирующим'
+      } по задаче «${createdTask.doc_type}».`, {
+        company_id: createdTask.company_id,
+        company_name: company?.name,
+        task_id: createdTask.id,
+        doc_type: createdTask.doc_type,
+        meta: { assigned_user_id: assignment.user_id, assignment_role: assignment.assignment_role },
+      });
+    });
+  });
+  assignmentNotifications.forEach((notification) =>
+    emitMockRealtimeEvent('notifications', 'INSERT', notification)
+  );
   return created;
 }
 
@@ -774,6 +859,7 @@ export async function updateTask(
       .eq('id', id)
       .select(`
         *,
+        creator:users!tasks_created_by_fkey (*),
         company:companies!tasks_company_id_fkey (
           *,
           owner:users!companies_owner_id_fkey (*),
@@ -791,6 +877,7 @@ export async function updateTask(
   const idx = tasks.findIndex((t) => t.id === id);
   if (idx === -1) throw new Error('Задача не найдена');
 
+  const previousTask = tasks[idx];
   tasks[idx] = {
     ...tasks[idx],
     ...updates,
@@ -798,22 +885,91 @@ export async function updateTask(
   };
   localStorage.setItem(LS_TASKS, JSON.stringify(tasks));
   emitMockRealtimeEvent('tasks', 'UPDATE', tasks[idx]);
+  const escalationChanged = updates.is_escalated !== undefined
+    && updates.is_escalated !== previousTask.is_escalated;
+  const statusChanged = updates.status !== undefined && updates.status !== previousTask.status;
+  recordMockActivity(
+    escalationChanged
+      ? updates.is_escalated ? 'escalate' : 'resolve_escalation'
+      : statusChanged ? 'status_change' : 'update_task',
+    escalationChanged
+      ? updates.is_escalated
+        ? `Задача «${tasks[idx].doc_type}» эскалирована: ${updates.escalation_reason || 'требуется контроль'}.`
+        : `С задачи «${tasks[idx].doc_type}» снята эскалация.`
+      : statusChanged
+        ? `Изменён статус задачи «${tasks[idx].doc_type}»: ${previousTask.status} → ${tasks[idx].status}.`
+        : `Изменены данные задачи «${tasks[idx].doc_type}».`,
+    {
+      company_id: tasks[idx].company_id,
+      task_id: tasks[idx].id,
+      doc_type: tasks[idx].doc_type,
+    }
+  );
 
   const all = await getTasks();
   return all.find((t) => t.id === id) || tasks[idx];
 }
 
+export async function updateTaskStatus(
+  id: string,
+  status: TaskStatus,
+  waitUntil: string | null
+): Promise<Task> {
+  if (isSupabaseConfigured) {
+    const { data, error } = await supabase.rpc('update_task_status', {
+      p_task_id: id,
+      p_status: status,
+      p_wait_until: waitUntil,
+    });
+
+    if (!error) {
+      if (!data) throw new Error('Сервер не вернул обновлённую задачу');
+      return data as Task;
+    }
+
+    if (error.code !== 'PGRST202' && error.code !== '42883') throw error;
+
+    const { data: updatedTask, error: updateError } = await supabase
+      .from('tasks')
+      .update({ status, wait_until: waitUntil, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select('*')
+      .single();
+
+    if (updateError) throw updateError;
+    return updatedTask as Task;
+  }
+
+  return updateTask(id, { status, wait_until: waitUntil });
+}
+
 export async function deleteTask(id: string): Promise<void> {
   if (isSupabaseConfigured) {
-    const { error } = await supabase.from('tasks').delete().eq('id', id);
+    const { data, error } = await supabase
+      .from('tasks')
+      .delete()
+      .eq('id', id)
+      .select('id')
+      .maybeSingle();
     if (error) throw error;
+    if (!data) {
+      throw new Error('Задача не удалена: нет прав или задача уже удалена');
+    }
     return;
   }
 
   let tasks: Task[] = JSON.parse(localStorage.getItem(LS_TASKS) || '[]');
+  const deletedTask = tasks.find((task) => task.id === id);
   tasks = tasks.filter((t) => t.id !== id);
   localStorage.setItem(LS_TASKS, JSON.stringify(tasks));
   emitMockRealtimeEvent('tasks', 'DELETE', { id });
+  if (deletedTask) {
+    recordMockActivity('delete_task', `Удалена задача «${deletedTask.doc_type}».`, {
+      company_id: deletedTask.company_id,
+      task_id: deletedTask.id,
+      doc_type: deletedTask.doc_type,
+    });
+  }
 }
 
 // -------------------------------------------------------------
@@ -885,6 +1041,75 @@ export function subscribeToTasks(onUpdate: (payload: any) => void): () => void {
     const custom = e as CustomEvent;
     if (custom.detail.table === 'tasks') {
       onUpdate(custom.detail);
+    }
+  };
+  realtimeEmitter.addEventListener('uchotka-realtime', handler);
+  return () => {
+    realtimeEmitter.removeEventListener('uchotka-realtime', handler);
+  };
+}
+
+export function subscribeToNotifications(userId: string, onUpdate: () => void): () => void {
+  if (isSupabaseConfigured) {
+    const channel = supabase
+      .channel(`notifications:${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${userId}`,
+        },
+        onUpdate
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }
+
+  const handler = (e: Event) => {
+    const custom = e as CustomEvent;
+    if (custom.detail.table === 'notifications' && custom.detail.record.user_id === userId) {
+      onUpdate();
+    }
+  };
+  realtimeEmitter.addEventListener('uchotka-realtime', handler);
+  return () => {
+    realtimeEmitter.removeEventListener('uchotka-realtime', handler);
+  };
+}
+
+export function subscribeToActivityLogs(onUpdate: () => void, companyId?: string): () => void {
+  if (isSupabaseConfigured) {
+    const channel = supabase
+      .channel(companyId ? `activity-logs:${companyId}` : 'activity-logs')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'activity_logs',
+          ...(companyId ? { filter: `company_id=eq.${companyId}` } : {}),
+        },
+        onUpdate
+      );
+    channel.subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }
+
+  const handler = (e: Event) => {
+    const custom = e as CustomEvent;
+    if (
+      custom.detail.table === 'activity_logs'
+      && (!companyId || custom.detail.record.company_id === companyId)
+    ) {
+      onUpdate();
     }
   };
   realtimeEmitter.addEventListener('uchotka-realtime', handler);

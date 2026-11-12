@@ -1,6 +1,5 @@
 import { Task, UserProfile } from '../types';
 import { updateTask } from './api';
-import { logActivity } from './activityLog';
 import { differenceInCalendarDays, parseISO, startOfDay } from 'date-fns';
 
 /**
@@ -42,19 +41,6 @@ export async function evaluateTaskEscalations(
           escalated_by: currentUser?.full_name || 'Автоматическая система контроля сроков',
         });
 
-        // Записываем в аудит-лог
-        await logActivity({
-          userId: currentUser?.id || 'system',
-          userName: currentUser?.full_name || 'Система эскалации Учётки',
-          actionType: 'escalate',
-          description: `Автоматическая эскалация руководителю по задаче "${task.doc_type}": ${reason}`,
-          companyId: task.company_id,
-          companyName: task.company?.name,
-          taskId: task.id,
-          docType: task.doc_type,
-          meta: { daysLeft, reason },
-        });
-
         newlyEscalated.push(updated);
       }
     } catch (e) {
@@ -83,18 +69,6 @@ export async function escalateTaskManually(
     escalated_by: user.full_name,
   });
 
-  await logActivity({
-    userId: user.id,
-    userName: user.full_name,
-    actionType: 'escalate',
-    description: `Сотрудник ${user.full_name} эскалировал задачу "${task.doc_type}" руководителю: "${reason}"`,
-    companyId: task.company_id,
-    companyName: task.company?.name,
-    taskId: task.id,
-    docType: task.doc_type,
-    meta: { reason },
-  });
-
   return updated;
 }
 
@@ -103,26 +77,11 @@ export async function escalateTaskManually(
  */
 export async function resolveTaskEscalation(
   task: Task,
-  user: UserProfile,
-  resolutionNote?: string
+  user: UserProfile
 ): Promise<Task> {
   const updated = await updateTask(task.id, {
     is_escalated: false,
     escalation_reason: null,
-  });
-
-  await logActivity({
-    userId: user.id,
-    userName: user.full_name,
-    actionType: 'resolve_escalation',
-    description: `Руководитель ${user.full_name} снял эскалацию с задачи "${task.doc_type}"${
-      resolutionNote ? ` (комментарий: ${resolutionNote})` : ''
-    }`,
-    companyId: task.company_id,
-    companyName: task.company?.name,
-    taskId: task.id,
-    docType: task.doc_type,
-    meta: { resolutionNote },
   });
 
   return updated;

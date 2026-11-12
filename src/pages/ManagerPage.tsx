@@ -16,13 +16,13 @@ import {
   CalendarDays,
   FileSpreadsheet
 } from 'lucide-react';
-import { getAllUsers, getAllCompanyDocuments, getCompanies, getTasks, subscribeToTasks } from '../lib/api';
+import { getAllUsers, getAllCompanyDocuments, getCompanies, getTasks, subscribeToTasks, subscribeToActivityLogs } from '../lib/api';
 import { UserProfile, Company, CompanyDocument, Task, AccountantStat, ActivityLog } from '../types';
 import { getTaskUrgency, formatDateRu } from '../lib/dateUtils';
 import { TaskCard } from '../components/TaskCard';
 import { useAuth } from '../context/AuthContext';
 import { evaluateTaskEscalations, resolveTaskEscalation } from '../lib/escalation';
-import { getActivityLogs, exportActivityLogsToCsv, downloadCsvFile } from '../lib/activityLog';
+import { ACTIVITY_ACTION_LABELS, getActivityLogs, exportActivityLogsToCsv, downloadCsvFile } from '../lib/activityLog';
 import { formatWhatsAppUrl } from '../lib/messenger';
 
 export const ManagerPage: React.FC = () => {
@@ -34,27 +34,35 @@ export const ManagerPage: React.FC = () => {
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [selectedAccountantId, setSelectedAccountantId] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [activityError, setActivityError] = useState<string | null>(null);
   const [checkingEscalations, setCheckingEscalations] = useState(false);
   const [lastRealtimeEvent, setLastRealtimeEvent] = useState<string | null>(null);
   const [auditFilter, setAuditFilter] = useState<string>('all');
 
   const loadData = async () => {
     try {
+      setLoadError(null);
       setLoading(true);
-      const [u, c, t, d, logs] = await Promise.all([
+      const [u, c, t, d] = await Promise.all([
         getAllUsers(),
         getCompanies(),
         getTasks(),
         getAllCompanyDocuments(),
-        getActivityLogs({ limit: 100 }),
       ]);
       setAccountants(u.filter((x) => x.role === 'accountant' || x.role === 'manager'));
       setCompanies(c);
       setTasks(t);
       setDocuments(d);
-      setActivityLogs(logs);
+      try {
+        setActivityLogs(await getActivityLogs({ limit: 100 }));
+        setActivityError(null);
+      } catch (err) {
+        setActivityError(err instanceof Error ? err.message : 'Не удалось загрузить историю действий');
+      }
     } catch (err) {
       console.error('Error loading manager metrics:', err);
+      setLoadError(err instanceof Error ? err.message : 'Не удалось загрузить данные');
     } finally {
       setLoading(false);
     }
@@ -80,7 +88,7 @@ export const ManagerPage: React.FC = () => {
   const handleResolveEscalation = async (task: Task) => {
     if (!user) return;
     try {
-      await resolveTaskEscalation(task, user, 'Решено руководителем');
+      await resolveTaskEscalation(task, user);
       await loadData();
     } catch (err) {
       console.error('Failed to resolve escalation:', err);
@@ -96,15 +104,32 @@ export const ManagerPage: React.FC = () => {
       console.log('Realtime event received in Manager view:', payload);
       setLastRealtimeEvent(new Date().toLocaleTimeString('ru-RU'));
       // Silently refresh metrics
-      Promise.all([getAllUsers(), getCompanies(), getTasks(), getAllCompanyDocuments()]).then(([u, c, t, d]) => {
+      Promise.all([getAllUsers(), getCompanies(), getTasks(), getAllCompanyDocuments(), getActivityLogs({ limit: 100 })]).then(([u, c, t, d, logs]) => {
         setAccountants(u.filter((x) => x.role === 'accountant' || x.role === 'manager'));
         setCompanies(c);
         setTasks(t);
         setDocuments(d);
+        setActivityLogs(logs);
+        setActivityError(null);
+      }).catch((err) => {
+        setActivityError(err instanceof Error ? err.message : 'Не удалось обновить данные');
       });
     });
+    const unsubscribeActivityLogs = subscribeToActivityLogs(() => {
+      getActivityLogs({ limit: 100 })
+        .then((logs) => {
+          setActivityLogs(logs);
+          setActivityError(null);
+        })
+        .catch((err) => {
+          setActivityError(err instanceof Error ? err.message : 'Не удалось обновить историю действий');
+        });
+    });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      unsubscribeActivityLogs();
+    };
   }, []);
 
   // Compute Agency Aggregate Metrics
@@ -127,7 +152,13 @@ export const ManagerPage: React.FC = () => {
   const accountantStats: AccountantStat[] = accountants
     .filter((a) => a.role === 'accountant')
     .map((acc) => {
-      const accCompanies = companies.filter((c) => c.owner_id === acc.id);
+      const accCompanies = companies.filter((company) =>
+        company.owner_id === acc.id
+        || tasks.some((task) =>
+          task.company_id === company.id
+          && task.assignments?.some((assignment) => assignment.user_id === acc.id)
+        )
+      );
       const accCompanyIds = new Set(accCompanies.map((c) => c.id));
       const accTasks = tasks.filter((task) => {
         if (task.assignments?.length) {
@@ -168,6 +199,16 @@ export const ManagerPage: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {loadError && (
+        <div className="mb-5 p-3 rounded-lg bg-[#FCE6E3] text-sm text-[#A94442]">
+          Не удалось загрузить данные: {loadError}
+        </div>
+      )}
+      {activityError && (
+        <div className="mb-5 p-3 rounded-lg bg-[#FCE6E3] text-sm text-[#A94442]">
+          {activityError}
+        </div>
+      )}
       {/* Page Header with Realtime Pulse Badge */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
@@ -760,6 +801,13 @@ export const ManagerPage: React.FC = () => {
             { id: 'escalate', label: 'Эскалации' },
             { id: 'send_reminder', label: 'Напоминания клиентам' },
             { id: 'status_change', label: 'Смена статусов' },
+            { id: 'create_task', label: 'Создание задач' },
+            { id: 'assign_task', label: 'Назначения' },
+            { id: 'update_task', label: 'Изменения задач' },
+            { id: 'delete_task', label: 'Удаления задач' },
+            { id: 'company_create', label: 'Создание компаний' },
+            { id: 'company_update', label: 'Изменения компаний' },
+            { id: 'company_delete', label: 'Удаления компаний' },
             { id: 'document_upload', label: 'Загрузка документов' },
             { id: 'generate_year_calendar', label: 'Генерация календаря' },
             { id: 'import_batch', label: 'Импорт' },
@@ -816,7 +864,7 @@ export const ManagerPage: React.FC = () => {
                               : 'bg-[#E7F3EB] text-[#5FA07A]'
                           }`}
                         >
-                          {log.action_type}
+                          {ACTIVITY_ACTION_LABELS[log.action_type]}
                         </span>
                       </td>
                       <td className="py-2.5 px-4 text-[#2B2A25] font-medium whitespace-nowrap">

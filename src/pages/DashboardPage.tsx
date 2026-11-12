@@ -30,6 +30,7 @@ export const DashboardPage: React.FC = () => {
     searchParams.get('company') || null
   );
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [taskSearch, setTaskSearch] = useState('');
   const [showDone, setShowDone] = useState(false);
 
@@ -37,6 +38,7 @@ export const DashboardPage: React.FC = () => {
 
   const loadData = async () => {
     try {
+      setLoadError(null);
       setLoading(true);
       // If manager, load all companies/tasks; if accountant, load only own
       const ownerId = isManager ? undefined : user?.id;
@@ -48,6 +50,7 @@ export const DashboardPage: React.FC = () => {
       setTasks(tks);
     } catch (err) {
       console.error('Error loading dashboard data:', err);
+      setLoadError(err instanceof Error ? err.message : 'Не удалось загрузить задачи');
     } finally {
       setLoading(false);
     }
@@ -127,6 +130,11 @@ export const DashboardPage: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {loadError && (
+        <div className="mb-5 p-3 rounded-lg bg-[#FCE6E3] border border-[#DD6B60]/30 text-sm text-[#A94442]">
+          Не удалось загрузить задачи: {loadError}
+        </div>
+      )}
       {/* Top Welcome & Summary Header */}
       <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>

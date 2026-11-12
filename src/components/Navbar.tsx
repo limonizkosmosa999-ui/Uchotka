@@ -14,7 +14,7 @@ import {
   FileSpreadsheet,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { getAllUsers, getNotifications, markNotificationRead } from '../lib/api';
+import { getAllUsers, getNotifications, markNotificationRead, subscribeToNotifications } from '../lib/api';
 import { AppNotification, UserProfile } from '../types';
 import logo from '../assets/hero.png';
 
@@ -29,10 +29,27 @@ export const Navbar: React.FC = () => {
   const [demoUsers, setDemoUsers] = useState<UserProfile[]>([]);
 
   useEffect(() => {
-    if (user) {
-      getNotifications(user.id).then(setNotifications);
+    if (!user) {
+      setNotifications([]);
+      return;
     }
-  }, [user]);
+
+    let active = true;
+    const refreshNotifications = () => {
+      getNotifications(user.id)
+        .then((items) => {
+          if (active) setNotifications(items);
+        })
+        .catch((error) => console.error('Failed to load notifications:', error));
+    };
+
+    refreshNotifications();
+    const unsubscribe = subscribeToNotifications(user.id, refreshNotifications);
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     if (!isConfigured) {
@@ -201,7 +218,7 @@ export const Navbar: React.FC = () => {
                     {notifications.length === 0 ? (
                       <p className="text-xs text-[#8C8577] text-center py-4">Нет новых уведомлений</p>
                     ) : (
-                      notifications.slice(0, 6).map((n) => (
+                      notifications.map((n) => (
                         <div
                           key={n.id}
                           className={`p-2.5 rounded-[8px] text-xs transition ${

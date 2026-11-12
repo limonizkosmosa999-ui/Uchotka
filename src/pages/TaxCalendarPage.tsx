@@ -151,6 +151,10 @@ export const TaxCalendarPage: React.FC = () => {
   };
 
   const handleGenerateTasks = async () => {
+    if (!user) {
+      alert('Не удалось определить пользователя. Войдите в систему и повторите попытку.');
+      return;
+    }
     if (!selectedCompanyId) {
       alert('Пожалуйста, выберите компанию для генерации задач');
       return;
@@ -190,8 +194,8 @@ export const TaxCalendarPage: React.FC = () => {
       }
 
       await logActivity({
-        userId: user?.id || 'system',
-        userName: user?.full_name || 'Бухгалтер',
+        userId: user.id,
+        userName: user.full_name,
         actionType: 'generate_year_calendar',
         description: `Сгенерировано ${selectedTasks.length} задач на ${reportingYear} год для компании "${targetCompany.name}" по режиму "${selectedTemplate?.name}"`,
         companyId: targetCompany.id,

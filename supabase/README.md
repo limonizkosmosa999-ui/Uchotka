@@ -9,6 +9,7 @@
 - `tasks` — задачи по сдаче отчетности и документов (`doc_type`, `due_date`, `status`, `wait_until`), исполнители и контролирующие хранятся в `task_assignees`.
 - `task_recurrence_series` — месячные, квартальные и годовые повторы задач.
 - `notifications` — журнал уведомлений для каждого бухгалтера о дедлайнах и изменениях.
+- `activity_logs` — серверный аудит создания, изменения, назначения и удаления задач и компаний.
 
 ## 2. Развертывание в Supabase
 1. Создайте проект на [supabase.com](https://supabase.com).
@@ -31,7 +32,16 @@
    не создаётся.
 7. Для полного перечня организационно-правовых форм и налоговых режимов выполните:
    `supabase/migrations/20261111000000_expand_company_and_tax_types.sql`
-8. В **Project Settings -> API** скопируйте:
+8. Для уведомлений исполнителей и контролирующих по назначенным задачам выполните:
+   `supabase/migrations/20261111000100_task_assignment_notifications.sql`
+   Миграция уведомит по уже назначенным задачам и включит уведомления для новых назначений.
+9. Для общей видимости назначенных компаний, журнала действий и связанных профилей выполните:
+   `supabase/migrations/20261112000000_backend_visibility_and_activity.sql`
+10. Для смены статуса задачи через серверную проверку прав выполните:
+    `supabase/migrations/20261112000200_secure_task_status_rpc.sql`
+11. Чтобы исполнитель и контролирующий могли удалить назначенную задачу, выполните:
+    `supabase/migrations/20261112000300_allow_assignees_to_delete_tasks.sql`
+12. В **Project Settings -> API** скопируйте:
    - `Project URL` -> в `.env` как `VITE_SUPABASE_URL`
    - публичный ключ `anon`/`publishable` -> в `.env` как `VITE_SUPABASE_ANON_KEY`
    - никогда не используйте `service_role` или `sb_secret_` ключи в браузере или переменных `VITE_*`

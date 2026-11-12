@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { Task, TaskStatus } from '../types';
 import { formatDateRu, getUrgencyBadge, getDaysLeftText } from '../lib/dateUtils';
-import { updateTask, deleteTask } from '../lib/api';
+import { updateTask, updateTaskStatus, deleteTask } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { SendReminderModal } from './SendReminderModal';
 import { EscalateTaskModal } from './EscalateTaskModal';
@@ -36,6 +36,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 }) => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [showMenu, setShowMenu] = useState(false);
   const [isEditingWait, setIsEditingWait] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
@@ -65,16 +66,21 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   }, [showDetails]);
 
   const handleStatusChange = async (newStatus: TaskStatus) => {
+    setActionError(null);
     setLoading(true);
     try {
-      const updated = await updateTask(task.id, {
-        status: newStatus,
-        wait_until: newStatus === 'waiting' ? (task.wait_until || new Date().toISOString().split('T')[0]) : task.wait_until,
-      });
-      onTaskUpdated?.(updated);
+      const updated = await updateTaskStatus(
+        task.id,
+        newStatus,
+        newStatus === 'waiting'
+          ? task.wait_until || new Date().toISOString().split('T')[0]
+          : task.wait_until || null
+      );
+      onTaskUpdated?.({ ...task, ...updated });
       setShowMenu(false);
     } catch (err) {
       console.error('Failed to update task:', err);
+      setActionError(err instanceof Error ? err.message : 'Не удалось изменить статус');
     } finally {
       setLoading(false);
     }
@@ -82,16 +88,15 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 
   const handleSaveWaitDate = async () => {
     if (!waitDate) return;
+    setActionError(null);
     setLoading(true);
     try {
-      const updated = await updateTask(task.id, {
-        status: 'waiting',
-        wait_until: waitDate,
-      });
-      onTaskUpdated?.(updated);
+      const updated = await updateTaskStatus(task.id, 'waiting', waitDate);
+      onTaskUpdated?.({ ...task, ...updated });
       setIsEditingWait(false);
     } catch (err) {
       console.error('Failed to update wait date:', err);
+      setActionError(err instanceof Error ? err.message : 'Не удалось сохранить дату ожидания');
     } finally {
       setLoading(false);
     }
@@ -99,12 +104,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 
   const handleDelete = async () => {
     if (confirm(`Удалить задачу по документу "${task.doc_type}"?`)) {
+      setActionError(null);
       setLoading(true);
       try {
         await deleteTask(task.id);
         onTaskDeleted?.(task.id);
       } catch (err) {
         console.error('Failed to delete task:', err);
+        setActionError(err instanceof Error ? err.message : 'Не удалось удалить задачу');
       } finally {
         setLoading(false);
       }
@@ -113,12 +120,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 
   const handleResolveEscalation = async () => {
     if (!user) return;
+    setActionError(null);
     setLoading(true);
     try {
-      const updated = await resolveTaskEscalation(task, user, 'Вопрос урегулирован');
+      const updated = await resolveTaskEscalation(task, user);
       onTaskUpdated?.(updated);
     } catch (err) {
       console.error('Failed to resolve escalation:', err);
+      setActionError(err instanceof Error ? err.message : 'Не удалось снять эскалацию');
     } finally {
       setLoading(false);
     }
@@ -133,6 +142,11 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           : 'border-[#EAE3D6] hover:border-[#C7A96E]'
       } ${loading ? 'opacity-60 pointer-events-none' : ''}`}
     >
+      {actionError && (
+        <div className="mb-3 rounded-lg bg-[#FCE6E3] border border-[#DD6B60]/30 p-2 text-xs text-[#A94442]">
+          {actionError}
+        </div>
+      )}
       {/* Escalation Warning Banner */}
       {task.is_escalated && (
         <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-[#FCE6E3] border border-[#DD6B60]/30 text-[#DD6B60] text-xs font-semibold mb-3">
@@ -384,7 +398,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               {task.assignments?.some((assignment) => assignment.assignment_role === 'executor')
                 ? task.assignments
                     .filter((assignment) => assignment.assignment_role === 'executor')
-                    .map((assignment) => assignment.user?.full_name || assignment.user_id)
+                    .map((assignment) => assignment.user?.full_name || 'Сотрудник недоступен')
                     .join(', ')
                 : task.company?.owner?.full_name.split(' ')[0]}
             </span>
@@ -404,12 +418,12 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           </button>
 
           {/* Quick action button */}
-          {task.status !== 'done' ? (
+          {task.status !== 'done' && task.status !== 'submitted' ? (
             <button
               type="button"
-              onClick={() => handleStatusChange('done')}
+              onClick={() => handleStatusChange('submitted')}
               className="flex items-center gap-1 px-2.5 py-1 rounded-[6px] text-xs font-medium text-[#5FA07A] bg-[#E7F3EB] hover:bg-[#5FA07A] hover:text-white transition"
-              title="Отметить выполненным"
+              title="Отметить как сданное в ведомство"
             >
               <Check className="w-3 h-3" />
               <span>Сдано</span>
@@ -417,7 +431,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           ) : (
             <span className="flex items-center gap-1 text-xs text-[#5FA07A] font-medium">
               <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Завершено</span>
+              <span>{task.status === 'submitted' ? 'Сдано' : 'Завершено'}</span>
             </span>
           )}
         </div>
@@ -467,6 +481,12 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                   {formatDateRu(task.due_date, 'd MMMM yyyy')}
                 </span>
               </div>
+              {task.creator && (
+                <div>
+                  <span className="block text-xs text-[#8C8577] mb-1">Создал задачу</span>
+                  <span className="font-semibold text-[#2B2A25]">{task.creator.full_name}</span>
+                </div>
+              )}
               {(task.assignments?.length || task.recurrence_rule) && (
                 <div className="space-y-2 text-sm">
                   {task.assignments?.length ? (
@@ -476,7 +496,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                         {task.assignments.map((assignment) => (
                           <li key={`${assignment.user_id}-${assignment.assignment_role}`}>
                             {assignment.assignment_role === 'executor' ? 'Исполнитель: ' : 'Контролирующий: '}
-                            {assignment.user?.full_name || assignment.user_id}
+                            {assignment.user?.full_name || 'Сотрудник недоступен'}
                           </li>
                         ))}
                       </ul>

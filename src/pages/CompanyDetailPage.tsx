@@ -18,13 +18,13 @@ import {
   ExternalLink,
   ShieldCheck
 } from 'lucide-react';
-import { getCompanyById, getTasks, deleteCompany } from '../lib/api';
+import { getCompanyById, getTasks, deleteCompany, subscribeToActivityLogs } from '../lib/api';
 import { Company, Task, ActivityLog } from '../types';
 import { TaskCard } from '../components/TaskCard';
 import { CompanyDocumentsPanel } from '../components/CompanyDocumentsPanel';
 import { formatDateRu } from '../lib/dateUtils';
 import { useAuth } from '../context/AuthContext';
-import { getActivityLogs, exportActivityLogsToCsv, downloadCsvFile } from '../lib/activityLog';
+import { ACTIVITY_ACTION_LABELS, getActivityLogs, exportActivityLogsToCsv, downloadCsvFile } from '../lib/activityLog';
 import { cleanPhoneNumber, formatWhatsAppUrl, formatTelegramUrl } from '../lib/messenger';
 
 export const CompanyDetailPage: React.FC = () => {
@@ -36,22 +36,30 @@ export const CompanyDetailPage: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pageError, setPageError] = useState<string | null>(null);
+  const [activityError, setActivityError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'active' | 'history' | 'documents' | 'audit'>('active');
 
   const loadCompanyData = async () => {
     if (!id) return;
     try {
+      setPageError(null);
+      setActivityError(null);
       setLoading(true);
-      const [compData, tasksData, logsData] = await Promise.all([
+      const [compData, tasksData] = await Promise.all([
         getCompanyById(id),
         getTasks({ companyId: id }),
-        getActivityLogs({ companyId: id, limit: 100 }),
       ]);
       setCompany(compData);
       setTasks(tasksData);
-      setActivityLogs(logsData);
+      try {
+        setActivityLogs(await getActivityLogs({ companyId: id, limit: 100 }));
+      } catch (err) {
+        setActivityError(err instanceof Error ? err.message : 'Не удалось загрузить историю действий');
+      }
     } catch (err) {
       console.error('Error fetching company details:', err);
+      setPageError(err instanceof Error ? err.message : 'Не удалось загрузить компанию');
     } finally {
       setLoading(false);
     }
@@ -60,6 +68,16 @@ export const CompanyDetailPage: React.FC = () => {
 
   useEffect(() => {
     loadCompanyData();
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    const unsubscribe = subscribeToActivityLogs(() => {
+      getActivityLogs({ companyId: id, limit: 100 })
+        .then(setActivityLogs)
+        .catch((err) => setActivityError(err instanceof Error ? err.message : 'Не удалось обновить историю действий'));
+    }, id);
+    return unsubscribe;
   }, [id]);
 
   const handleDeleteCompany = async () => {
@@ -86,6 +104,7 @@ export const CompanyDetailPage: React.FC = () => {
     return (
       <div className="max-w-7xl mx-auto px-4 py-12 text-center">
         <h2 className="text-base font-bold text-[#2B2A25] mb-2">Компания не найдена</h2>
+        {pageError && <p className="mb-3 text-xs text-[#DD6B60]">{pageError}</p>}
         <Link to="/dashboard" className="text-xs text-[#5FA07A] hover:underline">
           Вернуться на рабочий стол
         </Link>
@@ -98,6 +117,16 @@ export const CompanyDetailPage: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {pageError && (
+        <div className="mb-5 p-3 rounded-lg bg-[#FCE6E3] text-sm text-[#A94442]">
+          Не удалось полностью загрузить карточку: {pageError}
+        </div>
+      )}
+      {activityError && (
+        <div className="mb-5 p-3 rounded-lg bg-[#FCE6E3] text-sm text-[#A94442]">
+          {activityError}
+        </div>
+      )}
       {/* Top breadcrumb & Back button */}
       <div className="mb-6">
         <Link
@@ -361,7 +390,7 @@ export const CompanyDetailPage: React.FC = () => {
                       </td>
                       <td className="py-2.5 px-3 whitespace-nowrap">
                         <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#FAF8F5] border border-[#EAE3D6] text-[#5FA07A]">
-                          {log.action_type}
+                          {ACTIVITY_ACTION_LABELS[log.action_type]}
                         </span>
                       </td>
                       <td className="py-2.5 px-3 text-[#2B2A25] leading-relaxed">

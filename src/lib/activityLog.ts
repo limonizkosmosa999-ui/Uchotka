@@ -1,7 +1,25 @@
 import { ActivityLog, ActivityActionType } from '../types';
 import { supabase, isSupabaseConfigured } from './supabase';
+import { emitMockRealtimeEvent } from './api';
 
 const LS_ACTIVITY_LOGS = 'uchotka_activity_logs';
+
+export const ACTIVITY_ACTION_LABELS: Record<ActivityActionType, string> = {
+  create_task: 'Создание задачи',
+  update_task: 'Изменение задачи',
+  delete_task: 'Удаление задачи',
+  assign_task: 'Назначение сотрудника',
+  status_change: 'Смена статуса',
+  escalate: 'Эскалация',
+  resolve_escalation: 'Снятие эскалации',
+  send_reminder: 'Напоминание клиенту',
+  document_upload: 'Загрузка документа',
+  company_create: 'Создание компании',
+  company_update: 'Изменение компании',
+  company_delete: 'Удаление компании',
+  import_batch: 'Импорт',
+  generate_year_calendar: 'Генерация календаря',
+};
 
 /**
  * Записывает действие в аудит-лог (историю действий)
@@ -31,23 +49,10 @@ export async function logActivity(entry: {
     meta: entry.meta,
   };
 
-  // Local storage cache
-  try {
-    const raw = localStorage.getItem(LS_ACTIVITY_LOGS);
-    const logs: ActivityLog[] = raw ? JSON.parse(raw) : [];
-    logs.unshift(newLog);
-    // Keep last 500 entries locally
-    if (logs.length > 500) logs.length = 500;
-    localStorage.setItem(LS_ACTIVITY_LOGS, JSON.stringify(logs));
-  } catch (e) {
-    console.warn('Failed to save activity log in localStorage', e);
-  }
-
-  // Supabase if table exists
   if (isSupabaseConfigured) {
-    try {
-      await supabase.from('activity_logs').insert({
-        id: newLog.id,
+    const { data, error } = await supabase
+      .from('activity_logs')
+      .insert({
         user_id: newLog.user_id,
         user_name: newLog.user_name,
         action_type: newLog.action_type,
@@ -56,13 +61,21 @@ export async function logActivity(entry: {
         company_name: newLog.company_name,
         task_id: newLog.task_id,
         doc_type: newLog.doc_type,
-        meta: newLog.meta,
-      });
-    } catch {
-      // Ignore if table not yet created in supabase
-    }
+        meta: newLog.meta || {},
+      })
+      .select()
+      .single();
+
+    if (error) throw new Error(`Не удалось записать историю действий: ${error.message}`);
+    return data as ActivityLog;
   }
 
+  const raw = localStorage.getItem(LS_ACTIVITY_LOGS);
+  const logs: ActivityLog[] = raw ? JSON.parse(raw) : [];
+  logs.unshift(newLog);
+  if (logs.length > 500) logs.length = 500;
+  localStorage.setItem(LS_ACTIVITY_LOGS, JSON.stringify(logs));
+  emitMockRealtimeEvent('activity_logs', 'INSERT', newLog);
   return newLog;
 }
 
@@ -77,45 +90,35 @@ export async function getActivityLogs(options?: {
   const limit = options?.limit || 100;
 
   if (isSupabaseConfigured) {
-    try {
-      let query = supabase
-        .from('activity_logs')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(limit);
-
-      if (options?.companyId) {
-        query = query.eq('company_id', options.companyId);
-      }
-      if (options?.taskId) {
-        query = query.eq('task_id', options.taskId);
-      }
-
-      const { data, error } = await query;
-      if (!error && data && data.length > 0) {
-        return data as ActivityLog[];
-      }
-    } catch {
-      // Fallback to local
-    }
-  }
-
-  // Local storage fallback
-  try {
-    const raw = localStorage.getItem(LS_ACTIVITY_LOGS);
-    let logs: ActivityLog[] = raw ? JSON.parse(raw) : [];
+    let query = supabase
+      .from('activity_logs')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(limit);
 
     if (options?.companyId) {
-      logs = logs.filter((l) => l.company_id === options.companyId);
+      query = query.eq('company_id', options.companyId);
     }
     if (options?.taskId) {
-      logs = logs.filter((l) => l.task_id === options.taskId);
+      query = query.eq('task_id', options.taskId);
     }
 
-    return logs.slice(0, limit);
-  } catch {
-    return [];
+    const { data, error } = await query;
+    if (error) throw new Error(`Не удалось загрузить историю действий: ${error.message}`);
+    return (data || []) as ActivityLog[];
   }
+
+  const raw = localStorage.getItem(LS_ACTIVITY_LOGS);
+  let logs: ActivityLog[] = raw ? JSON.parse(raw) : [];
+
+  if (options?.companyId) {
+    logs = logs.filter((l) => l.company_id === options.companyId);
+  }
+  if (options?.taskId) {
+    logs = logs.filter((l) => l.task_id === options.taskId);
+  }
+
+  return logs.slice(0, limit);
 }
 
 /**
