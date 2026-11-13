@@ -14,7 +14,13 @@ import {
   FileSpreadsheet,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { getAllUsers, getNotifications, markNotificationRead, subscribeToNotifications } from '../lib/api';
+import {
+  getAllUsers,
+  getNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
+  subscribeToNotifications,
+} from '../lib/api';
 import { AppNotification, UserProfile } from '../types';
 import logo from '../assets/hero.png';
 
@@ -27,6 +33,8 @@ export const Navbar: React.FC = () => {
   const [showNotifMenu, setShowNotifMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [demoUsers, setDemoUsers] = useState<UserProfile[]>([]);
+  const [markingAllRead, setMarkingAllRead] = useState(false);
+  const [notificationError, setNotificationError] = useState<string | null>(null);
   const notificationMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -76,10 +84,32 @@ export const Navbar: React.FC = () => {
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
   const handleMarkAsRead = async (id: string) => {
-    await markNotificationRead(id);
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
-    );
+    setNotificationError(null);
+    try {
+      await markNotificationRead(id);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
+      );
+    } catch (error) {
+      console.error('Failed to mark notification as read:', error);
+      setNotificationError('Не удалось отметить уведомление прочитанным');
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    if (!user || unreadCount === 0 || markingAllRead) return;
+
+    setMarkingAllRead(true);
+    setNotificationError(null);
+    try {
+      await markAllNotificationsRead(user.id);
+      setNotifications((prev) => prev.map((notification) => ({ ...notification, is_read: true })));
+    } catch (error) {
+      console.error('Failed to mark all notifications as read:', error);
+      setNotificationError('Не удалось отметить все уведомления прочитанными');
+    } finally {
+      setMarkingAllRead(false);
+    }
   };
 
   const handleLogout = async () => {
@@ -216,17 +246,35 @@ export const Navbar: React.FC = () => {
               {/* Notification drop-down menu */}
               {showNotifMenu && (
                 <div className="absolute right-0 mt-2 w-80 sm:w-96 max-h-[85vh] bg-white border border-[#EAE3D6] rounded-[10px] shadow-lg p-3 z-50 flex flex-col">
-                  <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#EAE3D6]">
+                  <div className="flex items-center justify-between gap-2 pb-2 mb-2 border-b border-[#EAE3D6]">
                     <div className="flex items-center gap-2">
                       <Bell className="w-4 h-4 text-[#5FA07A]" />
                       <span className="text-xs font-semibold text-[#2B2A25]">Уведомления</span>
                     </div>
-                    {unreadCount > 0 && (
-                      <span className="text-[11px] text-[#8C8577]">
-                        {unreadCount} новых
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {unreadCount > 0 && (
+                        <>
+                          <span className="text-[11px] text-[#8C8577]">
+                            {unreadCount} новых
+                          </span>
+                          <button
+                            type="button"
+                            onClick={handleMarkAllAsRead}
+                            disabled={markingAllRead}
+                            className="text-[11px] font-medium text-[#5FA07A] hover:underline disabled:opacity-50 disabled:no-underline"
+                          >
+                            {markingAllRead ? 'Отмечаем...' : 'Прочитать все'}
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
+
+                  {notificationError && (
+                    <p role="alert" className="mb-2 text-[11px] text-[#A94442]">
+                      {notificationError}
+                    </p>
+                  )}
 
                   <div className="max-h-[75vh] overflow-y-auto space-y-2">
                     {notifications.length === 0 ? (

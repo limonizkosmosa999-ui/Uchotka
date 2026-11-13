@@ -888,6 +888,30 @@ export async function updateTask(
   const escalationChanged = updates.is_escalated !== undefined
     && updates.is_escalated !== previousTask.is_escalated;
   const statusChanged = updates.status !== undefined && updates.status !== previousTask.status;
+  if (updates.is_escalated === true && !previousTask.is_escalated) {
+    const users: UserProfile[] = JSON.parse(localStorage.getItem(LS_USERS) || '[]');
+    const notifications: AppNotification[] = JSON.parse(localStorage.getItem(LS_NOTIFICATIONS) || '[]');
+    const escalatedBy = updates.escalated_by || 'Сотрудник';
+    const message = `Задача «${tasks[idx].doc_type}» эскалирована сотрудником ${escalatedBy}. Причина: ${
+      updates.escalation_reason || 'требуется срочный контроль'
+    }`;
+    const escalationNotifications = users
+      .filter((candidate) => candidate.role === 'manager')
+      .map((manager) => ({
+        id: `notification-escalation-${tasks[idx].id}-${manager.id}-${Date.now()}`,
+        user_id: manager.id,
+        task_id: tasks[idx].id,
+        message,
+        is_read: false,
+        created_at: new Date().toISOString(),
+      }));
+    notifications.unshift(...escalationNotifications);
+    localStorage.setItem(LS_NOTIFICATIONS, JSON.stringify(notifications));
+    escalationNotifications.forEach((notification) =>
+      emitMockRealtimeEvent('notifications', 'INSERT', notification)
+    );
+  }
+
   recordMockActivity(
     escalationChanged
       ? updates.is_escalated ? 'escalate' : 'resolve_escalation'
@@ -1011,6 +1035,35 @@ export async function markNotificationRead(id: string): Promise<void> {
     notifs[idx].is_read = true;
     localStorage.setItem(LS_NOTIFICATIONS, JSON.stringify(notifs));
     emitMockRealtimeEvent('notifications', 'UPDATE', notifs[idx]);
+  }
+}
+
+export async function markAllNotificationsRead(userId: string): Promise<void> {
+  if (isSupabaseConfigured) {
+    const { error } = await supabase
+      .from('notifications')
+      .update({ is_read: true })
+      .eq('user_id', userId)
+      .eq('is_read', false);
+
+    if (error) throw error;
+    return;
+  }
+
+  const notifications: AppNotification[] = JSON.parse(
+    localStorage.getItem(LS_NOTIFICATIONS) || '[]'
+  );
+  let changed = false;
+  notifications.forEach((notification) => {
+    if (notification.user_id === userId && !notification.is_read) {
+      notification.is_read = true;
+      changed = true;
+      emitMockRealtimeEvent('notifications', 'UPDATE', notification);
+    }
+  });
+
+  if (changed) {
+    localStorage.setItem(LS_NOTIFICATIONS, JSON.stringify(notifications));
   }
 }
 
