@@ -1,5 +1,9 @@
 ALTER TABLE public.tasks
-    ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES public.users(id) ON DELETE SET NULL;
+    ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES public.users(id) ON DELETE SET NULL,
+    ADD COLUMN IF NOT EXISTS is_escalated BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS escalated_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS escalation_reason TEXT,
+    ADD COLUMN IF NOT EXISTS escalated_by TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_tasks_created_by ON public.tasks(created_by);
 

@@ -428,10 +428,19 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               <Check className="w-3 h-3" />
               <span>Сдано</span>
             </button>
+          ) : task.status === 'submitted' ? (
+            <button
+              type="button"
+              onClick={() => handleStatusChange('in_progress')}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-[6px] text-xs font-medium text-[#8C8577] bg-[#FAF8F5] hover:bg-[#EAE3D6] transition"
+              title="Отменить сдачу и вернуть задачу в работу"
+            >
+              <span>Отменить сдачу</span>
+            </button>
           ) : (
             <span className="flex items-center gap-1 text-xs text-[#5FA07A] font-medium">
               <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>{task.status === 'submitted' ? 'Сдано' : 'Завершено'}</span>
+              <span>Завершено</span>
             </span>
           )}
         </div>

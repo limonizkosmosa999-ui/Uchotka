@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Calendar as CalendarIcon,
@@ -27,6 +27,20 @@ export const Navbar: React.FC = () => {
   const [showNotifMenu, setShowNotifMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [demoUsers, setDemoUsers] = useState<UserProfile[]>([]);
+  const notificationMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showNotifMenu) return;
+
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      if (!notificationMenuRef.current?.contains(event.target as Node)) {
+        setShowNotifMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', closeOnOutsideClick);
+    return () => document.removeEventListener('mousedown', closeOnOutsideClick);
+  }, [showNotifMenu]);
 
   useEffect(() => {
     if (!user) {
@@ -184,7 +198,7 @@ export const Navbar: React.FC = () => {
             </div>
 
             {/* Notification Bell */}
-            <div className="relative">
+            <div className="relative" ref={notificationMenuRef}>
               <button
                 type="button"
                 onClick={() => setShowNotifMenu(!showNotifMenu)}
@@ -201,7 +215,7 @@ export const Navbar: React.FC = () => {
 
               {/* Notification drop-down menu */}
               {showNotifMenu && (
-                <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white border border-[#EAE3D6] rounded-[10px] shadow-lg p-3 z-50">
+                <div className="absolute right-0 mt-2 w-80 sm:w-96 max-h-[85vh] bg-white border border-[#EAE3D6] rounded-[10px] shadow-lg p-3 z-50 flex flex-col">
                   <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#EAE3D6]">
                     <div className="flex items-center gap-2">
                       <Bell className="w-4 h-4 text-[#5FA07A]" />
@@ -214,7 +228,7 @@ export const Navbar: React.FC = () => {
                     )}
                   </div>
 
-                  <div className="max-h-72 overflow-y-auto space-y-2">
+                  <div className="max-h-[75vh] overflow-y-auto space-y-2">
                     {notifications.length === 0 ? (
                       <p className="text-xs text-[#8C8577] text-center py-4">Нет новых уведомлений</p>
                     ) : (

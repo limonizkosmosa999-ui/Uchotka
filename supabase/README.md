@@ -41,7 +41,9 @@
     `supabase/migrations/20261112000200_secure_task_status_rpc.sql`
 11. Чтобы исполнитель и контролирующий могли удалить назначенную задачу, выполните:
     `supabase/migrations/20261112000300_allow_assignees_to_delete_tasks.sql`
-12. В **Project Settings -> API** скопируйте:
+12. Для полей эскалации задач, используемых аудитом и интерфейсом, выполните:
+    `supabase/migrations/20261113000000_add_task_escalation_fields.sql`
+13. В **Project Settings -> API** скопируйте:
    - `Project URL` -> в `.env` как `VITE_SUPABASE_URL`
    - публичный ключ `anon`/`publishable` -> в `.env` как `VITE_SUPABASE_ANON_KEY`
    - никогда не используйте `service_role` или `sb_secret_` ключи в браузере или переменных `VITE_*`
