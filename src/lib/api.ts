@@ -153,7 +153,7 @@ export async function registerWithEmail(
   email: string,
   password: string,
   fullName: string,
-  role: 'accountant' | 'manager' = 'accountant'
+  requestedRole: 'accountant' | 'manager' = 'accountant'
 ): Promise<UserProfile> {
   if (supabaseConfigError) throw new Error(supabaseConfigError);
 
@@ -162,7 +162,7 @@ export async function registerWithEmail(
       email,
       password,
       options: {
-        data: { full_name: fullName, role },
+        data: { full_name: fullName, role: requestedRole },
       },
     });
     if (error) throw error;
@@ -183,7 +183,7 @@ export async function registerWithEmail(
     const profile: UserProfile = {
       id: data.user.id,
       email,
-      role,
+      role: 'accountant',
       full_name: fullName,
       notification_email: email,
       created_at: new Date().toISOString(),
@@ -200,7 +200,10 @@ export async function registerWithEmail(
   const newUser: UserProfile = {
     id: `user-${Date.now()}`,
     email,
-    role,
+    role: requestedRole === 'manager'
+      && ['limon.iz.kosmosa.999@gmail.com', 'ashymova.aiperi@gmail.com'].includes(email.trim().toLowerCase())
+      ? 'manager'
+      : 'accountant',
     full_name: fullName,
     notification_email: email,
     created_at: new Date().toISOString(),

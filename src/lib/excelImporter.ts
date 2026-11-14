@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx';
+import * as XLSX from '@e965/xlsx';
 import { ClientType, Company, Task, UserProfile } from '../types';
 import { createCompany, createCompanyTasks, getCompanies, getAllUsers } from './api';
 import { logActivity } from './activityLog';

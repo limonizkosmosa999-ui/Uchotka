@@ -9,7 +9,12 @@ interface AuthContextType {
   isConfigured: boolean;
   configurationError: string | null;
   login: (email: string, password: string) => Promise<UserProfile>;
-  register: (email: string, password: string, fullName: string, role?: 'accountant' | 'manager') => Promise<UserProfile>;
+  register: (
+    email: string,
+    password: string,
+    fullName: string,
+    role?: 'accountant' | 'manager'
+  ) => Promise<UserProfile>;
   logout: () => Promise<void>;
   switchUser: (userId: string) => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -61,7 +66,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const register = async (email: string, pass: string, fullName: string, role: 'accountant' | 'manager' = 'accountant') => {
+  const register = async (
+    email: string,
+    pass: string,
+    fullName: string,
+    role: 'accountant' | 'manager' = 'accountant'
+  ) => {
     setLoading(true);
     try {
       const u = await registerWithEmail(email, pass, fullName, role);

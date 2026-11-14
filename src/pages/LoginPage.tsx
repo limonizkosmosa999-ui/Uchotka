@@ -223,7 +223,6 @@ export const LoginPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Role selector */}
                 <div>
                   <label className="block text-sm font-semibold text-[#1E1D19] mb-1.5">
                     Роль в агентстве

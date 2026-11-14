@@ -15,7 +15,7 @@ SELECT cron.schedule(
     $$
     SELECT net.http_post(
         url:='https://YOUR_PROJECT_REF.functions.supabase.co/send-reminders',
-        headers:='{"Content-Type": "application/json", "Authorization": "Bearer YOUR_SERVICE_ROLE_OR_ANON_KEY"}'::jsonb,
+        headers:={"Content-Type": "application/json", "x-reminder-secret": "YOUR_REMINDER_CRON_SECRET"}::jsonb,
         body:='{}'::jsonb
     ) as request_id;
     $$

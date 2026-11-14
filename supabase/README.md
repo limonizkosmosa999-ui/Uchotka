@@ -45,7 +45,14 @@
     `supabase/migrations/20261113000000_add_task_escalation_fields.sql`
 13. Чтобы руководитель получал уведомление при эскалации задачи, выполните:
     `supabase/migrations/20261113000100_escalation_notifications.sql`
-14. В **Project Settings -> API** скопируйте:
+14. Для защиты и назначения роли руководителя примените:
+    `supabase/migrations/20261114000000_harden_user_roles.sql`
+    Затем выполните `supabase/migrations/20261114000100_restrict_manager_accounts.sql`
+    и `supabase/migrations/20261114000200_allowlisted_manager_signup.sql`.
+    В форме регистрации можно выбрать роль руководителя, но база назначит её только
+    аккаунтам `limon.iz.kosmosa.999@gmail.com` и `ashymova.aiperi@gmail.com`.
+    Все остальные получают роль бухгалтера, а пользователи не могут изменить свою роль самостоятельно.
+15. В **Project Settings -> API** скопируйте:
    - `Project URL` -> в `.env` как `VITE_SUPABASE_URL`
    - публичный ключ `anon`/`publishable` -> в `.env` как `VITE_SUPABASE_ANON_KEY`
    - никогда не используйте `service_role` или `sb_secret_` ключи в браузере или переменных `VITE_*`
@@ -78,8 +85,13 @@
 Для деплоя через Supabase CLI:
 ```bash
 supabase functions deploy send-reminders --no-verify-jwt
-supabase secrets set RESEND_API_KEY=re_your_api_key
+supabase secrets set RESEND_API_KEY=re_your_api_key 'REMINDER_CRON_SECRET=YOUR_GENERATED_SECRET'
 ```
+Функция принимает только `POST` с заголовком `x-reminder-secret`, совпадающим с
+`REMINDER_CRON_SECRET`. Задайте этот заголовок во внешнем планировщике или в защищённом
+секрет-хранилище для `pg_cron`; не сохраняйте фактическое значение в репозитории.
+Не используйте старую конфигурацию планировщика, где передавался только ключ Supabase:
+после включения проверки запросы без секрета будут отклоняться.
 
 ## 4. Realtime
 В миграции автоматически включена публикация `supabase_realtime` для таблиц `tasks`, `companies`, `notifications`. Это обеспечивает мгновенное обновление панели руководителя (`/manager`) при любых изменениях задач бухгалтерами без перезагрузки страницы.

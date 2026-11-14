@@ -7,8 +7,19 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-reminder-secret",
 };
+
+function escapeHtml(value: string | null | undefined): string {
+  const entities: Record<string, string> = {
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  };
+  return (value ?? "").replace(/[&<>"']/g, (character) => entities[character]);
+}
 
 interface TaskReminderRow {
   task_id: string;
@@ -29,7 +40,29 @@ serve(async (req: Request) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  if (req.method !== "POST") {
+    return new Response(
+      JSON.stringify({ error: "Method not allowed" }),
+      { status: 405, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
   try {
+    const reminderSecret = Deno.env.get("REMINDER_CRON_SECRET");
+    if (!reminderSecret) {
+      return new Response(
+        JSON.stringify({ error: "REMINDER_CRON_SECRET is not configured" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (req.headers.get("x-reminder-secret") !== reminderSecret) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
@@ -61,10 +94,10 @@ serve(async (req: Request) => {
         doc_type,
         due_date,
         status,
-        company:companies (
+        company:companies!tasks_company_id_fkey (
           name,
           inn,
-          owner:users (
+          owner:users!companies_owner_id_fkey (
             id,
             full_name,
             email,
@@ -133,13 +166,16 @@ serve(async (req: Request) => {
       // 2. Отправка Email через Resend (если настроен RESEND_API_KEY)
       if (resendApiKey && recipientEmail) {
         try {
+          const accountantName = escapeHtml(t.accountant_name);
+          const docType = escapeHtml(t.doc_type);
+          const companyName = escapeHtml(t.company_name);
           const emailHtml = `
             <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; background: #ffffff; border: 1px solid #EAE3D6; border-radius: 10px;">
               <h2 style="color: #2B2A25; margin-top: 0;">Уведомление о дедлайне сдачи</h2>
-              <p style="color: #2B2A25; font-size: 15px;">Здравствуйте, <strong>${t.accountant_name}</strong>!</p>
+              <p style="color: #2B2A25; font-size: 15px;">Здравствуйте, <strong>${accountantName}</strong>!</p>
               <div style="background-color: ${t.days_left === 1 ? '#FCE6E3' : '#FBEBD9'}; border-left: 4px solid ${t.days_left === 1 ? '#DD6B60' : '#DB8A3C'}; padding: 14px; border-radius: 6px; margin: 16px 0;">
                 <p style="margin: 0; color: #2B2A25; font-size: 15px;">
-                  Срок сдачи отчёта <strong>"${t.doc_type}"</strong> для компании <strong>"${t.company_name}"</strong> истекает <strong>${daysText}</strong> (${t.due_date}).
+                  Срок сдачи отчёта <strong>"${docType}"</strong> для компании <strong>"${companyName}"</strong> истекает <strong>${daysText}</strong> (${t.due_date}).
                 </p>
               </div>
               <p style="color: #8C8577; font-size: 13px; line-height: 1.5;">
@@ -160,7 +196,7 @@ serve(async (req: Request) => {
             body: JSON.stringify({
               from: "Учётка Напоминания <reminders@uchotka.agency>",
               to: [recipientEmail],
-              subject: `Дедлайн ${daysText}: ${t.doc_type} (${t.company_name})`,
+              subject: `Дедлайн ${daysText}: ${t.doc_type} (${t.company_name})`.replace(/[\r\n]+/g, " "),
               html: emailHtml,
             }),
           });
