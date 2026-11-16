@@ -39,7 +39,9 @@ export const Navbar: React.FC = () => {
   const [showAddEmployeeModal, setShowAddEmployeeModal] = useState(false);
   const [markingAllRead, setMarkingAllRead] = useState(false);
 
-  const notificationMenuRef = useRef<HTMLDivElement>(null);
+  const bellButtonRef = useRef<HTMLButtonElement>(null);
+  const notifDropdownRef = useRef<HTMLDivElement>(null);
+  const userButtonRef = useRef<HTMLButtonElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   const isManager = user?.role === 'manager';
@@ -91,10 +93,19 @@ export const Navbar: React.FC = () => {
   // Close menus on outside click
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
-      if (notificationMenuRef.current && !notificationMenuRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        notifDropdownRef.current &&
+        !notifDropdownRef.current.contains(target) &&
+        !bellButtonRef.current?.contains(target)
+      ) {
         setShowNotifMenu(false);
       }
-      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+      if (
+        userMenuRef.current &&
+        !userMenuRef.current.contains(target) &&
+        !userButtonRef.current?.contains(target)
+      ) {
         setShowUserMenu(false);
       }
     };
@@ -321,11 +332,15 @@ export const Navbar: React.FC = () => {
         </div>
 
         {/* Bottom Profile Footer matching design */}
-        <div className="p-3 border-t border-[#EAE5DD] relative" ref={userMenuRef}>
+        <div className="p-3 border-t border-[#EAE5DD] relative">
           <div className="flex items-center justify-between">
             <button
+              ref={userButtonRef}
               type="button"
-              onClick={() => setShowUserMenu(!showUserMenu)}
+              onClick={() => {
+                setShowUserMenu(!showUserMenu);
+                setShowNotifMenu(false);
+              }}
               className="flex items-center gap-3 p-1.5 rounded-xl hover:bg-[#F6F3EE] transition w-full text-left"
             >
               {/* User Avatar Circle (Peach/sand background) */}
@@ -343,10 +358,14 @@ export const Navbar: React.FC = () => {
             </button>
 
             {/* Notification Bell Icon */}
-            <div className="relative" ref={notificationMenuRef}>
+            <div className="relative">
               <button
+                ref={bellButtonRef}
                 type="button"
-                onClick={() => setShowNotifMenu(!showNotifMenu)}
+                onClick={() => {
+                  setShowNotifMenu(!showNotifMenu);
+                  setShowUserMenu(false);
+                }}
                 className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-[#F6F3EE] transition relative"
                 title="Уведомления"
               >
@@ -360,7 +379,10 @@ export const Navbar: React.FC = () => {
 
           {/* User Menu Dropdown */}
           {showUserMenu && (
-            <div className="absolute bottom-full left-3 mb-2 w-64 bg-white border border-[#EAE5DD] rounded-2xl shadow-xl p-2 z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
+            <div
+              ref={userMenuRef}
+              className="absolute bottom-full left-3 mb-2 w-64 bg-white border border-[#EAE5DD] rounded-2xl shadow-xl p-2 z-50 animate-in fade-in slide-in-from-bottom-2 duration-150"
+            >
               <div className="px-3 py-2.5 border-b border-[#EAE5DD] mb-1">
                 <p className="text-xs font-bold text-[#1A1916]">{user?.full_name}</p>
                 <p className="text-[11px] text-gray-400 truncate">{user?.email}</p>
@@ -419,9 +441,19 @@ export const Navbar: React.FC = () => {
 
           {/* Notifications Dropdown */}
           {showNotifMenu && (
-            <div className="absolute bottom-full right-3 mb-2 w-80 bg-white border border-[#EAE5DD] rounded-2xl shadow-xl overflow-hidden z-50">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-[#EAE5DD]">
-                <span className="text-xs font-bold text-[#1A1916]">Уведомления</span>
+            <div
+              ref={notifDropdownRef}
+              className="absolute left-full bottom-3 ml-3 w-[390px] sm:w-[420px] bg-white border border-[#EAE5DD] rounded-2xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-left-2 duration-150"
+            >
+              <div className="flex items-center justify-between px-4 py-3.5 border-b border-[#EAE5DD] bg-[#FAF8F5]">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-[#1A1916]">Уведомления</span>
+                  {unreadCount > 0 && (
+                    <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[#D9483B] text-white">
+                      {unreadCount}
+                    </span>
+                  )}
+                </div>
                 {unreadCount > 0 && (
                   <button
                     type="button"
@@ -438,9 +470,12 @@ export const Navbar: React.FC = () => {
                   </button>
                 )}
               </div>
-              <div className="max-h-64 overflow-y-auto divide-y divide-[#EAE5DD]">
+              <div className="max-h-[500px] overflow-y-auto divide-y divide-[#EAE5DD]">
                 {notifications.length === 0 ? (
-                  <p className="p-4 text-center text-xs text-gray-400">Нет новых уведомлений</p>
+                  <div className="p-8 text-center">
+                    <Bell className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                    <p className="text-xs text-gray-500 font-medium">Нет новых уведомлений</p>
+                  </div>
                 ) : (
                   notifications.map((n) => (
                     <div
@@ -453,13 +488,20 @@ export const Navbar: React.FC = () => {
                           );
                         }
                       }}
-                      className={`p-3 text-xs cursor-pointer transition ${
+                      className={`p-3.5 text-xs cursor-pointer transition hover:bg-[#F6F3EE] ${
                         n.is_read ? 'bg-white text-gray-600' : 'bg-[#FAF8F5] text-gray-900 font-medium'
                       }`}
                     >
-                      <p className="leading-snug">{n.message}</p>
-                      <span className="text-[10px] text-gray-400 mt-1 block">
-                        {new Date(n.created_at).toLocaleTimeString('ru-RU', {
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="leading-snug flex-1">{n.message}</p>
+                        {!n.is_read && (
+                          <span className="w-2 h-2 rounded-full bg-[#1E4D3B] flex-shrink-0 mt-1" />
+                        )}
+                      </div>
+                      <span className="text-[10px] text-gray-400 mt-1.5 block">
+                        {new Date(n.created_at).toLocaleString('ru-RU', {
+                          day: 'numeric',
+                          month: 'short',
                           hour: '2-digit',
                           minute: '2-digit',
                         })}
