@@ -1,6 +1,6 @@
 import { supabase, isSupabaseConfigured, supabaseConfigError } from './supabase';
 import { ActivityActionType, ActivityLog, Company, CompanyDocument, TaxType, Task, TaskStatus, UserProfile, AppNotification } from '../types';
-import { MOCK_USERS, MOCK_TAX_TYPES, MOCK_COMPANIES, MOCK_TASKS, MOCK_NOTIFICATIONS } from './mockData';
+import { MOCK_USERS, MOCK_TAX_TYPES, MOCK_COMPANIES, MOCK_TASKS, MOCK_NOTIFICATIONS, MOCK_ACTIVITY_LOGS } from './mockData';
 
 // Local storage keys for fallback/demo state
 const LS_STORAGE_PREFIX = 'uchotka_';
@@ -22,24 +22,23 @@ const ALLOWED_DOCUMENT_TYPES = new Set([
 
 // Initialize mock database in localStorage if needed
 function initMockStorage() {
-  if (!localStorage.getItem(LS_USERS)) {
+  const currentUsers = localStorage.getItem(LS_USERS);
+  const needsReset = !currentUsers || !currentUsers.includes('user-manager-saikal');
+
+  if (needsReset) {
     localStorage.setItem(LS_USERS, JSON.stringify(MOCK_USERS));
-  }
-  if (!localStorage.getItem(LS_COMPANIES)) {
     localStorage.setItem(LS_COMPANIES, JSON.stringify(MOCK_COMPANIES));
-  }
-  if (!localStorage.getItem(LS_TASKS)) {
     localStorage.setItem(LS_TASKS, JSON.stringify(MOCK_TASKS));
-  }
-  if (!localStorage.getItem(LS_NOTIFICATIONS)) {
     localStorage.setItem(LS_NOTIFICATIONS, JSON.stringify(MOCK_NOTIFICATIONS));
+    localStorage.setItem(LS_CURRENT_USER, JSON.stringify(MOCK_USERS[0]));
+    localStorage.setItem('uchotka_activity_logs', JSON.stringify(MOCK_ACTIVITY_LOGS));
+  }
+
+  if (!localStorage.getItem('uchotka_activity_logs')) {
+    localStorage.setItem('uchotka_activity_logs', JSON.stringify(MOCK_ACTIVITY_LOGS));
   }
   if (!localStorage.getItem(LS_COMPANY_DOCUMENTS)) {
     localStorage.setItem(LS_COMPANY_DOCUMENTS, JSON.stringify([]));
-  }
-  if (!localStorage.getItem(LS_CURRENT_USER)) {
-    // Default to the first accountant for instant preview
-    localStorage.setItem(LS_CURRENT_USER, JSON.stringify(MOCK_USERS[1]));
   }
 }
 

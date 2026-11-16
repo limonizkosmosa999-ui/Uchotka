@@ -49,11 +49,11 @@ export const LoginPage: React.FC = () => {
     setLoading(true);
     try {
       if (mode === 'login') {
-        await login(email, password);
-        navigate('/dashboard');
+        const u = await login(email, password);
+        navigate(u.role === 'manager' ? '/manager' : '/dashboard');
       } else {
-        await register(email, password, fullName, role);
-        navigate('/dashboard');
+        const u = await register(email, password, fullName, role);
+        navigate(u.role === 'manager' ? '/manager' : '/dashboard');
       }
     } catch (err: unknown) {
       setError(getAuthErrorMessage(err));
@@ -63,18 +63,18 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F4F1EB] flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-[#F4EFEA] flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        {/* Logo */}
+        {/* Logo matching the new design */}
         <div className="flex justify-center mb-4">
-          <div className="w-16 h-16 rounded-2xl bg-white border border-[#D4C9B0] flex items-center justify-center shadow-sm">
-            <Building2 className="w-9 h-9 text-[#4A8C68]" strokeWidth={1.8} />
+          <div className="w-12 h-12 rounded-xl bg-black text-white flex items-center justify-center font-bold shadow-xs">
+            <span className="text-xl">✓</span>
           </div>
         </div>
-        <h1 className="text-center text-3xl font-bold text-[#1E1D19] tracking-tight">
+        <h1 className="text-center text-3xl font-extrabold text-[#1A1916] tracking-tight">
           Учётка
         </h1>
-        <p className="mt-1.5 text-center text-sm text-[#6B6558]">
+        <p className="mt-1.5 text-center text-xs text-gray-500 font-medium">
           Система управления бухгалтерского агентства
         </p>
       </div>
@@ -120,45 +120,49 @@ export const LoginPage: React.FC = () => {
                   className="p-3.5 rounded-xl bg-[#FFF8F0] border border-[#E8C87A]/50 cursor-pointer hover:border-[#C47F2A] transition group"
                   onClick={() => {
                     setMode('login');
-                    setEmail('manager@uchotka.agency');
+                    setEmail('saikal@uchotka.agency');
                     setPassword('demo1234');
                   }}
                 >
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-bold uppercase tracking-wider text-[#C47F2A]">
-                      👤 Руководитель агентства
+                      👤 Руководитель (Сайкал)
                     </span>
                     <span className="text-[11px] text-[#8C8577] group-hover:text-[#C47F2A] transition">
-                      Нажмите для автозаполнения →
+                      Автозаполнение →
                     </span>
                   </div>
                   <div className="space-y-1">
-                    <div className="flex items-center gap-2 text-sm">
-                      <Mail className="w-4 h-4 text-[#8C8577]" />
-                      <code className="text-[#1E1D19] font-semibold">manager@uchotka.agency</code>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <Lock className="w-4 h-4 text-[#8C8577]" />
-                      <code className="text-[#1E1D19] font-semibold">demo1234</code>
+                    <div className="flex items-center gap-2 text-xs">
+                      <Mail className="w-3.5 h-3.5 text-[#8C8577]" />
+                      <code className="text-[#1A1916] font-semibold">saikal@uchotka.agency</code>
                     </div>
                   </div>
                 </div>
 
                 {/* Accountant demo entries */}
-                <div className="grid grid-cols-1 gap-2">
+                <div className="grid grid-cols-1 gap-1.5">
                   {[
-                    { name: 'Бакыт Муратов', email: 'bakyt@uchotka.agency' },
-                    { name: 'Елена Ким', email: 'elena@uchotka.agency' },
-                    { name: 'Улан Джумабеков', email: 'ulan@uchotka.agency' },
+                    { name: 'Айгуль', email: 'aigul1111@gmail.com' },
+                    { name: 'Акмарал', email: 'akmaral@gmail.com' },
+                    { name: 'Алина', email: 'demo.accountant1@example.com' },
+                    { name: 'Нурзат', email: 'demo.accountant2@example.com' },
+                    { name: 'Эльмира', email: 'demo.accountant3@example.com' },
                   ].map((acc) => (
                     <div
                       key={acc.email}
-                      className="p-3 rounded-xl bg-[#F2FAF5] border border-[#4A8C68]/20 cursor-pointer hover:border-[#4A8C68] transition group flex items-center justify-between"
+                      className="p-2.5 rounded-lg bg-[#E2EFE7]/40 border border-[#1E4D3B]/20 cursor-pointer hover:border-[#1E4D3B] transition group flex items-center justify-between"
                       onClick={() => {
                         setMode('login');
                         setEmail(acc.email);
                         setPassword('demo1234');
                       }}
+                    >
+                      <span className="text-xs font-semibold text-[#1A1916]">{acc.name}</span>
+                      <span className="text-[11px] text-gray-500 font-mono">{acc.email}</span>
+                    </div>
+                  ))}
+                </div>
                     >
                       <div>
                         <span className="text-xs font-bold text-[#4A8C68] block">
@@ -303,7 +307,7 @@ export const LoginPage: React.FC = () => {
             <button
               type="submit"
               disabled={loading || Boolean(configurationError)}
-              className="w-full py-3.5 rounded-xl bg-[#4A8C68] text-white text-sm font-bold hover:bg-[#3D7557] transition disabled:opacity-50 mt-2"
+              className="w-full py-3 rounded-lg bg-[#1E4D3B] text-white text-xs font-bold hover:bg-[#163B2D] transition disabled:opacity-50 mt-2 shadow-2xs"
             >
               {loading
                 ? 'Загрузка...'

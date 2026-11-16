@@ -62,6 +62,7 @@ export const TaxCalendarPage: React.FC = () => {
   // Directory filter states
   const [directorySearch, setDirectorySearch] = useState('');
   const [directoryCategory, setDirectoryCategory] = useState<string>('all');
+  const [selectedRuleId, setSelectedRuleId] = useState('sti-062');
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1); // 1-12
 
   const isManager = user?.role === 'manager';
@@ -231,41 +232,49 @@ export const TaxCalendarPage: React.FC = () => {
     }
     return true;
   });
+  const selectedRule = filteredRules.find((rule) => rule.id === selectedRuleId) || filteredRules[0];
+  const deadlinesBy20 = 4 + ([1, 4, 7, 10].includes(selectedMonth) ? 1 : 0);
+  const deadlinesBy25 = 3;
+  const annualDeadlines = 4;
 
   // Monthly deadlines filter (20-е / 25-е / 1-е число)
   const monthNamesRu = [
     'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
     'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
   ];
+  const monthShortNamesRu = [
+    'Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн',
+    'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'
+  ];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="w-full min-h-screen bg-[#F4EFEA] px-8 py-7">
       {/* Page Header */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="px-2 py-0.5 rounded-full bg-[#E7F3EB] text-[#5FA07A] text-[11px] font-bold">
+            <span className="px-2 py-0.5 rounded-full bg-[#E2EFE7] text-[#1E4D3B] text-[11px] font-bold">
               Кыргызстан • НК КР
             </span>
-            <span className="text-xs text-[#8C8577]">28+ официальных форм ГНС</span>
+            <span className="text-xs text-gray-500 font-medium">28+ официальных форм ГНС</span>
           </div>
-          <h1 className="text-2xl font-bold text-[#2B2A25] tracking-tight">
+          <h1 className="text-2xl font-extrabold text-[#1A1916] tracking-tight">
             Налоговый календарь Кыргызстана
           </h1>
-          <p className="text-xs text-[#8C8577] mt-1 max-w-2xl">
+          <p className="text-xs text-gray-500 font-medium mt-0.5 max-w-2xl">
             Автоматическое формирование задач по срокам сдачи отчётности ГНС на год вперёд с учётом режима налогообложения, формы собственности и штата.
           </p>
         </div>
 
         {/* Tab navigation pills */}
-        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-[#EAE3D6]/40 border border-[#EAE3D6] self-start lg:self-auto">
+        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-white border border-[#D4CDBF] shadow-2xs self-start lg:self-auto">
           <button
             type="button"
             onClick={() => handleTabChange('generator')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition ${
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition ${
               activeTab === 'generator'
-                ? 'bg-white text-[#5FA07A] shadow-sm'
-                : 'text-[#8C8577] hover:text-[#2B2A25]'
+                ? 'bg-black text-white shadow-2xs'
+                : 'text-gray-600 hover:text-black'
             }`}
           >
             <Sparkles className="w-3.5 h-3.5" />
@@ -275,10 +284,10 @@ export const TaxCalendarPage: React.FC = () => {
           <button
             type="button"
             onClick={() => handleTabChange('monthly')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition ${
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition ${
               activeTab === 'monthly'
-                ? 'bg-white text-[#5FA07A] shadow-sm'
-                : 'text-[#8C8577] hover:text-[#2B2A25]'
+                ? 'bg-black text-white shadow-2xs'
+                : 'text-gray-600 hover:text-black'
             }`}
           >
             <CalendarDays className="w-3.5 h-3.5" />
@@ -288,10 +297,10 @@ export const TaxCalendarPage: React.FC = () => {
           <button
             type="button"
             onClick={() => handleTabChange('directory')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition ${
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition ${
               activeTab === 'directory'
-                ? 'bg-white text-[#5FA07A] shadow-sm'
-                : 'text-[#8C8577] hover:text-[#2B2A25]'
+                ? 'bg-black text-white shadow-2xs'
+                : 'text-gray-600 hover:text-black'
             }`}
           >
             <BookOpen className="w-3.5 h-3.5" />
@@ -508,7 +517,7 @@ export const TaxCalendarPage: React.FC = () => {
                   type="button"
                   onClick={handleGenerateTasks}
                   disabled={generating || selectedCount === 0}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#5FA07A] hover:bg-[#528E6B] text-white text-xs font-semibold shadow-sm transition disabled:opacity-50"
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#1E4D3B] hover:bg-[#163B2D] text-white text-xs font-semibold shadow-sm transition disabled:opacity-50"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
                   <span>
@@ -565,14 +574,15 @@ export const TaxCalendarPage: React.FC = () => {
       {/* TAB 2: СРОКИ СДАЧИ ПО МЕСЯЦАМ */}
       {/* ========================================================================= */}
       {activeTab === 'monthly' && (
-        <div className="space-y-6">
+        <div className="tax-monthly-layout">
+        <div className="tax-monthly-content space-y-6">
           {/* Month selector buttons */}
           <div className="bg-white border border-[#EAE3D6] rounded-2xl p-4 shadow-sm">
             <span className="text-[11px] font-semibold text-[#8C8577] block mb-2">
               Выберите отчётный месяц:
             </span>
             <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-12 gap-1.5">
-              {monthNamesRu.map((mName, idx) => {
+              {monthNamesRu.map((_, idx) => {
                 const monthNum = idx + 1;
                 const isCurrent = selectedMonth === monthNum;
                 return (
@@ -586,7 +596,7 @@ export const TaxCalendarPage: React.FC = () => {
                         : 'border border-[#EAE3D6] bg-white text-[#2B2A25] hover:bg-[#FAF8F5]'
                     }`}
                   >
-                    {mName}
+                    {monthShortNamesRu[idx]}
                   </button>
                 );
               })}
@@ -729,13 +739,28 @@ export const TaxCalendarPage: React.FC = () => {
             </div>
           </div>
         </div>
+        <aside className="tax-calendar-aside">
+          <span className="tax-aside-eyebrow">{monthNamesRu[selectedMonth - 1]}</span>
+          <div className="tax-aside-total">{deadlinesBy20 + deadlinesBy25 + annualDeadlines}</div>
+          <strong>форм за месяц</strong>
+          <div className="tax-aside-count"><span>До 20-го</span><strong>{deadlinesBy20}</strong></div>
+          <div className="tax-aside-count"><span>До 25-го (НДС)</span><strong>{deadlinesBy25}</strong></div>
+          <div className="tax-aside-count"><span>Годовые ЕНД</span><strong>{annualDeadlines}</strong></div>
+          <p>Это справочник сроков. Чтобы формы стали задачами, откройте генератор и выберите компанию.</p>
+          <div className="tax-aside-actions">
+            <button type="button" onClick={() => handleTabChange('generator')}>Открыть генератор</button>
+            <button type="button" onClick={() => handleTabChange('directory')}>База форм ГНС</button>
+          </div>
+        </aside>
+        </div>
       )}
 
       {/* ========================================================================= */}
       {/* TAB 3: СПРАВОЧНИК ФОРМ ГНС КР (28 ФОРМ) */}
       {/* ========================================================================= */}
       {activeTab === 'directory' && (
-        <div className="space-y-6">
+        <div className="tax-directory-layout">
+        <div className="tax-directory-content space-y-6">
           {/* Search & Category Filter */}
           <div className="bg-white border border-[#EAE3D6] rounded-2xl p-4 shadow-sm flex flex-col md:flex-row gap-3 items-center justify-between">
             <div className="relative w-full md:w-96">
@@ -776,92 +801,91 @@ export const TaxCalendarPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Rules Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="tax-rules-table">
+            <div className="tax-rules-header">
+              <span>Форма</span>
+              <span>Название</span>
+              <span>Период</span>
+              <span>Срок</span>
+            </div>
             {filteredRules.map((rule) => (
-              <div
+              <button
+                type="button"
                 key={rule.id}
-                className="bg-white border border-[#EAE3D6] rounded-2xl p-5 shadow-sm hover:border-[#5FA07A]/50 transition flex flex-col justify-between"
+                onClick={() => setSelectedRuleId(rule.id)}
+                className={`tax-rule-row ${selectedRule?.id === rule.id ? 'is-selected' : ''}`}
               >
-                <div>
-                  <div className="flex items-center justify-between gap-2 mb-2">
-                    <span className="px-2.5 py-1 rounded-lg bg-[#E7F3EB] text-[#5FA07A] font-bold text-xs font-mono">
-                      {rule.form_code}
-                    </span>
-                    <span className="text-[10px] text-[#8C8577] capitalize">
-                      {rule.period === 'month'
-                        ? 'Ежемесячно'
-                        : rule.period === 'quarter'
-                        ? 'Ежеквартально'
-                        : rule.period === 'year'
-                        ? 'Ежегодно'
-                        : 'Инфо-расчёт'}
-                    </span>
-                  </div>
-
-                  <h4 className="text-xs font-bold text-[#2B2A25] mb-1 leading-snug">
-                    {rule.tax_code}
-                  </h4>
-                  <p className="text-[11px] text-[#8C8577] line-clamp-2 mb-3">
-                    {rule.name}
-                  </p>
-
-                  <div className="space-y-1.5 pt-2 border-t border-[#EAE3D6] text-[11px]">
-                    <div className="flex items-start gap-1.5">
-                      <Clock className="w-3.5 h-3.5 text-[#5FA07A] flex-shrink-0 mt-0.5" />
-                      <span className="text-[#2B2A25]">
-                        <strong>Срок:</strong> {rule.deadline_rule}
-                      </span>
-                    </div>
-
-                    <div className="flex items-start gap-1.5">
-                      <Users className="w-3.5 h-3.5 text-[#8C8577] flex-shrink-0 mt-0.5" />
-                      <span className="text-[#8C8577]">
-                        Кто сдаёт:{' '}
-                        {rule.payer_types
-                          .map((p) =>
-                            p === 'organization'
-                              ? 'Организации'
-                              : p === 'individual_entrepreneur'
-                              ? 'ИП'
-                              : p === 'tax_agent'
-                              ? 'Налоговые агенты'
-                              : 'Физлица'
-                          )
-                          .join(', ')}
-                      </span>
-                    </div>
-
-                    {rule.legal_reference && (
-                      <span className="text-[10px] text-[#5FA07A] block mt-1">
-                        Основание: {rule.legal_reference}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="pt-3 mt-3 border-t border-[#EAE3D6] flex items-center justify-between">
-                  <span className="text-[10px] text-[#8C8577]">
-                    {rule.payment_deadline_rule ? `Уплата: ${rule.payment_deadline_rule}` : 'Срок уплаты совпадает'}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedTemplateId(
-                        KYRGYZ_TAX_TEMPLATES.find((t) => t.form_codes.includes(rule.form_code))?.id ||
-                          'ip_single_tax_small'
-                      );
-                      handleTabChange('generator');
-                    }}
-                    className="text-[11px] text-[#5FA07A] font-semibold hover:underline inline-flex items-center gap-1"
-                  >
-                    <span>В генератор</span>
-                    <ArrowRight className="w-3 h-3" />
-                  </button>
-                </div>
-              </div>
+                <span className="tax-rule-code">{rule.form_code.replace('FORM ', '')}</span>
+                <span className="tax-rule-name">
+                  <strong>{rule.tax_code}</strong>
+                  <small>
+                    {rule.payer_types.map((payer) =>
+                      payer === 'organization'
+                        ? 'Организации'
+                        : payer === 'individual_entrepreneur'
+                        ? 'ИП'
+                        : payer === 'tax_agent'
+                        ? 'Налоговые агенты'
+                        : 'Физлица'
+                    ).join(', ')}
+                  </small>
+                </span>
+                <span className="tax-rule-period">
+                  {rule.period === 'month'
+                    ? 'Ежемесячно'
+                    : rule.period === 'quarter'
+                    ? 'Ежеквартально'
+                    : rule.period === 'year'
+                    ? 'Ежегодно'
+                    : 'По событию'}
+                </span>
+                <strong className="tax-rule-deadline">{rule.deadline_rule}</strong>
+              </button>
             ))}
           </div>
+        </div>
+        <aside className="tax-rule-details">
+          {selectedRule && (
+            <>
+              <span className="tax-rule-code">{selectedRule.form_code}</span>
+              <h2>{selectedRule.tax_code}</h2>
+              <p>{selectedRule.description}</p>
+              <section>
+                <span>Срок</span>
+                <p>{selectedRule.deadline_rule}</p>
+              </section>
+              <section>
+                <span>Кто сдаёт</span>
+                <p>{selectedRule.payer_types.map((payer) =>
+                  payer === 'organization'
+                    ? 'Организации'
+                    : payer === 'individual_entrepreneur'
+                    ? 'ИП'
+                    : payer === 'tax_agent'
+                    ? 'Налоговые агенты'
+                    : 'Физлица'
+                ).join(', ')}</p>
+              </section>
+              <section>
+                <span>Уплата и основание</span>
+                <p>{selectedRule.payment_deadline_rule || selectedRule.deadline_rule}</p>
+                {selectedRule.legal_reference && <p>{selectedRule.legal_reference}</p>}
+              </section>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedTemplateId(
+                    KYRGYZ_TAX_TEMPLATES.find((template) => template.form_codes.includes(selectedRule.form_code))?.id
+                      || 'ip_single_tax_small'
+                  );
+                  handleTabChange('generator');
+                }}
+              >
+                Добавить в генератор <ArrowRight className="h-4 w-4" />
+              </button>
+            </>
+          )}
+        </aside>
         </div>
       )}
     </div>

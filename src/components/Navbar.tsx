@@ -1,17 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  Calendar as CalendarIcon,
-  CheckSquare,
-  PlusCircle,
-  Bell,
+  Check,
+  Plus,
   Settings,
   LogOut,
-  Users,
-  CheckCircle2,
-  ChevronDown,
-  BookOpen,
-  FileSpreadsheet,
+  Bell,
+  X,
+  UserCheck
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -20,9 +16,14 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
   subscribeToNotifications,
+  getCompanies,
+  getTasks,
+  subscribeToTasks,
+  registerWithEmail
 } from '../lib/api';
-import { AppNotification, UserProfile } from '../types';
-import logo from '../assets/hero.png';
+import { AppNotification, Company, Task, UserProfile, UserRole } from '../types';
+import { getTaskUrgency } from '../lib/dateUtils';
+import { AddEmployeeModal } from './AddEmployeeModal';
 
 export const Navbar: React.FC = () => {
   const { user, logout, isConfigured, switchUser } = useAuth();
@@ -32,84 +33,101 @@ export const Navbar: React.FC = () => {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [showNotifMenu, setShowNotifMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [demoUsers, setDemoUsers] = useState<UserProfile[]>([]);
+  const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [showAddEmployeeModal, setShowAddEmployeeModal] = useState(false);
   const [markingAllRead, setMarkingAllRead] = useState(false);
-  const [notificationError, setNotificationError] = useState<string | null>(null);
+
   const notificationMenuRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!showNotifMenu) return;
+  const isManager = user?.role === 'manager';
 
-    const closeOnOutsideClick = (event: MouseEvent) => {
-      if (!notificationMenuRef.current?.contains(event.target as Node)) {
-        setShowNotifMenu(false);
-      }
-    };
-
-    document.addEventListener('mousedown', closeOnOutsideClick);
-    return () => document.removeEventListener('mousedown', closeOnOutsideClick);
-  }, [showNotifMenu]);
-
-  useEffect(() => {
-    if (!user) {
-      setNotifications([]);
-      return;
+  // Load agency users, companies, and tasks
+  const refreshData = async () => {
+    try {
+      const [u, c, t] = await Promise.all([
+        getAllUsers(),
+        getCompanies(),
+        getTasks(),
+      ]);
+      setAllUsers(u);
+      setCompanies(c);
+      setTasks(t);
+    } catch (err) {
+      console.error('Navbar failed to load data:', err);
     }
+  };
 
+  useEffect(() => {
+    refreshData();
+    const unsub = subscribeToTasks(() => {
+      refreshData();
+    });
+    return () => unsub();
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user) return;
     let active = true;
-    const refreshNotifications = () => {
+
+    const refreshNotifs = () => {
       getNotifications(user.id)
         .then((items) => {
           if (active) setNotifications(items);
         })
-        .catch((error) => console.error('Failed to load notifications:', error));
+        .catch((err) => console.error('Failed to load notifications:', err));
     };
 
-    refreshNotifications();
-    const unsubscribe = subscribeToNotifications(user.id, refreshNotifications);
+    refreshNotifs();
+    const unsubNotifs = subscribeToNotifications(user.id, refreshNotifs);
     return () => {
       active = false;
-      unsubscribe();
+      unsubNotifs();
     };
   }, [user?.id]);
 
+  // Close menus on outside click
   useEffect(() => {
-    if (!isConfigured) {
-      getAllUsers()
-        .then(setDemoUsers)
-        .catch((error) => console.error('Failed to load demo users:', error));
-    }
-  }, [isConfigured]);
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (notificationMenuRef.current && !notificationMenuRef.current.contains(e.target as Node)) {
+        setShowNotifMenu(false);
+      }
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setShowUserMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
-  const handleMarkAsRead = async (id: string) => {
-    setNotificationError(null);
-    try {
-      await markNotificationRead(id);
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
-      );
-    } catch (error) {
-      console.error('Failed to mark notification as read:', error);
-      setNotificationError('Не удалось отметить уведомление прочитанным');
-    }
-  };
+  // Compute overdue count for badge on "Сводка"
+  const overdueCount = tasks.filter((t) => {
+    if (t.status === 'done' || t.status === 'submitted') return false;
+    return getTaskUrgency(t) === 'overdue';
+  }).length;
 
-  const handleMarkAllAsRead = async () => {
-    if (!user || unreadCount === 0 || markingAllRead) return;
+  // Filter accountants for manager sidebar
+  const accountants = allUsers.filter((u) => u.role === 'accountant');
 
-    setMarkingAllRead(true);
-    setNotificationError(null);
-    try {
-      await markAllNotificationsRead(user.id);
-      setNotifications((prev) => prev.map((notification) => ({ ...notification, is_read: true })));
-    } catch (error) {
-      console.error('Failed to mark all notifications as read:', error);
-      setNotificationError('Не удалось отметить все уведомления прочитанными');
-    } finally {
-      setMarkingAllRead(false);
-    }
+  // Compute task count per accountant
+  const getAccountantActiveTaskCount = (accountantId: string) => {
+    const accCompanies = companies.filter(
+      (c) => c.owner_id === accountantId || c.curator_id === accountantId
+    );
+    const accCompanyIds = new Set(accCompanies.map((c) => c.id));
+    return tasks.filter((task) => {
+      if (task.status === 'done' || task.status === 'submitted') return false;
+      if (task.assignments?.length) {
+        return task.assignments.some(
+          (a) => a.assignment_role === 'executor' && a.user_id === accountantId
+        );
+      }
+      return accCompanyIds.has(task.company_id);
+    }).length;
   };
 
   const handleLogout = async () => {
@@ -117,277 +135,350 @@ export const Navbar: React.FC = () => {
     navigate('/login');
   };
 
-  const handleSwitchUser = async (userId: string) => {
+  const handleSwitchUser = async (targetUserId: string) => {
     try {
-      await switchUser(userId);
+      await switchUser(targetUserId);
       setShowUserMenu(false);
-    } catch (error) {
-      console.error('Failed to switch demo user:', error);
+      navigate(isManager ? '/manager' : '/dashboard');
+    } catch (err) {
+      console.error('Failed to switch user:', err);
     }
   };
 
-  const isManager = user?.role === 'manager';
+  const handleAddEmployee = async (fullName: string, email: string, role: UserRole) => {
+    await registerWithEmail(email, 'demo1234', fullName, role);
+    await refreshData();
+  };
 
-  const navLinks = [
-    ...(isManager
-      ? [
-          {
-            to: '/manager',
-            label: 'Сводка руководителя',
-            icon: Users,
-            active: location.pathname === '/manager',
-          },
-        ]
-      : []),
-    {
-      to: '/dashboard',
-      label: isManager ? 'Все задачи агентства' : 'Мои задачи',
-      icon: CheckSquare,
-      active: location.pathname === '/dashboard',
-    },
-    {
-      to: '/calendar',
-      label: 'Календарь',
-      icon: CalendarIcon,
-      active: location.pathname === '/calendar',
-    },
-    {
-      to: '/tax-calendar',
-      label: 'Налоги КР',
-      icon: BookOpen,
-      active: location.pathname === '/tax-calendar',
-    },
-  ];
+  const currentPath = location.pathname;
 
   return (
-    <header className="sticky top-0 z-40 bg-white border-b border-[#EAE3D6] shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Brand Logo & Agency Name */}
-          <div className="flex items-center gap-8">
-            <Link to={isManager ? '/manager' : '/dashboard'} className="flex items-center gap-2.5 group">
-              <img
-                src={logo}
-                alt="Логотип Учётки"
-                className="w-10 h-10 rounded-[10px] object-cover transition group-hover:scale-105"
-              />
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-lg text-[#2B2A25] tracking-tight">УЧЁТКА</span>
-                </div>
-              </div>
+    <>
+      <aside className="app-sidebar w-[230px] min-w-[230px] h-screen sticky top-0 flex flex-col justify-between bg-white border-r border-[#EAE5DD] z-30 select-none">
+        {/* Top: Logo & Main Navigation */}
+        <div className="flex-1 overflow-y-auto px-4 pt-5 pb-3">
+          {/* Brand Logo matching design */}
+          <Link
+            to={isManager ? '/manager' : '/dashboard'}
+            className="flex items-center gap-2.5 px-2 mb-6 group"
+          >
+            <div className="w-6 h-6 rounded-[7px] bg-black text-white flex items-center justify-center font-bold shadow-xs">
+              <Check className="w-4 h-4 stroke-[2.8]" />
+            </div>
+            <span className="text-[17px] font-extrabold text-[#1A1916] tracking-tight">
+              Учётка
+            </span>
+          </Link>
+
+          {/* Navigation Links */}
+          <nav className="space-y-1">
+            {isManager && (
+              <Link
+                to="/manager"
+                className={`flex items-center justify-between px-3 py-2 rounded-xl text-[13px] font-medium transition ${
+                  currentPath === '/manager'
+                    ? 'bg-[#EAE6DF] text-[#1A1916] font-semibold'
+                    : 'text-[#3B3A36] hover:bg-[#F6F3EE] hover:text-[#1A1916]'
+                }`}
+              >
+                <span>Сводка</span>
+                {overdueCount > 0 && (
+                  <span className="px-2 py-0.5 text-[11px] font-bold rounded-full bg-[#FCE8E6] text-[#D9483B]">
+                    {overdueCount}
+                  </span>
+                )}
+              </Link>
+            )}
+
+            <Link
+              to="/dashboard"
+              className={`flex items-center justify-between px-3 py-2 rounded-xl text-[13px] font-medium transition ${
+                currentPath === '/dashboard' && !location.search.includes('accountant')
+                  ? 'bg-[#E2EFE7] text-[#1E4D3B] font-semibold'
+                  : 'text-[#3B3A36] hover:bg-[#F6F3EE] hover:text-[#1A1916]'
+              }`}
+            >
+              <span>{isManager ? 'Все задачи агентства' : 'Мои задачи'}</span>
             </Link>
 
-            {/* Navigation tabs */}
-            <nav className="hidden xl:flex items-center gap-1">
-              {navLinks.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.to}
-                    to={item.to}
-                    className={`flex items-center gap-1.5 px-3 py-2 rounded-[10px] text-xs font-medium whitespace-nowrap transition ${
-                      item.active
-                        ? 'bg-[#E7F3EB] text-[#5FA07A]'
-                        : 'text-[#2B2A25] hover:bg-[#FAF8F5] hover:text-[#5FA07A]'
-                    }`}
-                  >
-                    <Icon className="w-4 h-4 flex-shrink-0" />
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
-            </nav>
-          </div>
+            <Link
+              to="/calendar"
+              className={`flex items-center px-3 py-2 rounded-xl text-[13px] font-medium transition ${
+                currentPath === '/calendar'
+                  ? 'bg-[#E2EFE7] text-[#1E4D3B] font-semibold'
+                  : 'text-[#3B3A36] hover:bg-[#F6F3EE] hover:text-[#1A1916]'
+              }`}
+            >
+              <span>Календарь</span>
+            </Link>
 
-          {/* Action CTAs & User Controls */}
-          <div className="flex min-w-0 items-center gap-1.5 sm:gap-2 xl:gap-3">
-            {/* Quick Create Buttons */}
-            <div className="hidden xl:flex items-center gap-1.5">
-              <Link
-                to="/companies/new"
-                className="inline-flex items-center gap-1.5 whitespace-nowrap px-2.5 py-2 rounded-[10px] text-xs font-medium border border-[#EAE3D6] text-[#2B2A25] bg-white hover:bg-[#FAF8F5] transition"
-              >
-                <PlusCircle className="w-4 h-4 flex-shrink-0 text-[#8C8577]" />
-                <span>Компания</span>
-              </Link>
-              <Link
-                to="/import"
-                className="inline-flex items-center gap-1.5 whitespace-nowrap px-2.5 py-2 rounded-[10px] text-xs font-medium border border-[#EAE3D6] text-[#2B2A25] bg-white hover:bg-[#FAF8F5] transition"
-              >
-                <FileSpreadsheet className="w-4 h-4 flex-shrink-0 text-[#8C8577]" />
-                <span>Импорт</span>
-              </Link>
-              <Link
-                to="/tasks/new"
-                className="inline-flex items-center gap-1.5 whitespace-nowrap px-2.5 py-2 rounded-[10px] text-xs font-medium text-white bg-[#5FA07A] hover:bg-[#528E6B] transition shadow-none"
-              >
-                <PlusCircle className="w-4 h-4 flex-shrink-0" />
-                <span>Задача</span>
-              </Link>
+            <Link
+              to="/tax-calendar"
+              className={`flex items-center px-3 py-2 rounded-xl text-[13px] font-medium transition ${
+                currentPath === '/tax-calendar'
+                  ? 'bg-[#E2EFE7] text-[#1E4D3B] font-semibold'
+                  : 'text-[#3B3A36] hover:bg-[#F6F3EE] hover:text-[#1A1916]'
+              }`}
+            >
+              <span>Налоги КР</span>
+            </Link>
+
+            <Link
+              to="/activity"
+              className={`flex items-center px-3 py-2 rounded-xl text-[13px] font-medium transition ${
+                currentPath === '/activity'
+                  ? 'bg-[#E2EFE7] text-[#1E4D3B] font-semibold'
+                  : 'text-[#3B3A36] hover:bg-[#F6F3EE] hover:text-[#1A1916]'
+              }`}
+            >
+              <span>Журнал действий</span>
+            </Link>
+
+            <Link
+              to="/import"
+              className={`flex items-center px-3 py-2 rounded-xl text-[13px] font-medium transition ${
+                currentPath === '/import'
+                  ? 'bg-[#E2EFE7] text-[#1E4D3B] font-semibold'
+                  : 'text-[#3B3A36] hover:bg-[#F6F3EE] hover:text-[#1A1916]'
+              }`}
+            >
+              <span>Импорт</span>
+            </Link>
+          </nav>
+
+          {/* Section: СОТРУДНИКИ (Руководитель) */}
+          {isManager ? (
+            <div className="mt-7">
+              <div className="flex items-center justify-between px-3 mb-2">
+                <span className="text-[11px] font-bold text-[#8C8577] tracking-wider uppercase">
+                  СОТРУДНИКИ
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowAddEmployeeModal(true)}
+                  className="w-5 h-5 flex items-center justify-center rounded text-gray-500 hover:text-black hover:bg-gray-100 transition"
+                  title="Добавить сотрудника"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <div className="space-y-0.5">
+                {accountants.map((acc) => {
+                  const activeTasks = getAccountantActiveTaskCount(acc.id);
+                  const isFiltered = location.search.includes(`accountant=${acc.id}`);
+
+                  return (
+                    <Link
+                      key={acc.id}
+                      to={`/dashboard?accountant=${acc.id}`}
+                      className={`flex items-center justify-between px-3 py-1.5 rounded-lg text-xs transition ${
+                        isFiltered
+                          ? 'bg-[#EAE6DF] font-semibold text-[#1A1916]'
+                          : 'text-[#4A463F] hover:bg-[#F6F3EE] hover:text-[#1A1916]'
+                      }`}
+                      title={acc.email}
+                    >
+                      <span className="truncate">{acc.full_name}</span>
+                      <span className="text-gray-400 text-[11px] ml-1 font-medium">
+                        {activeTasks}
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
             </div>
+          ) : (
+            /* Section: КЛИЕНТЫ (Бухгалтер) */
+            <div className="mt-7">
+              <div className="flex items-center justify-between px-3 mb-2">
+                <span className="text-[11px] font-bold text-[#8C8577] tracking-wider uppercase">
+                  КЛИЕНТЫ
+                </span>
+                <Link
+                  to="/companies/new"
+                  className="w-5 h-5 flex items-center justify-center rounded text-gray-500 hover:text-black hover:bg-gray-100 transition"
+                  title="Добавить компанию"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </Link>
+              </div>
 
-            {/* Notification Bell */}
+              <div className="space-y-0.5 max-h-56 overflow-y-auto">
+                {companies.map((comp) => (
+                  <Link
+                    key={comp.id}
+                    to={`/companies/${comp.id}`}
+                    className="flex items-center justify-between px-3 py-1.5 rounded-lg text-xs text-[#4A463F] hover:bg-[#F6F3EE] hover:text-[#1A1916] transition"
+                    title={comp.name}
+                  >
+                    <span className="truncate">{comp.name}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Bottom Profile Footer matching design */}
+        <div className="p-3 border-t border-[#EAE5DD] relative" ref={userMenuRef}>
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              className="flex items-center gap-3 p-1.5 rounded-xl hover:bg-[#F6F3EE] transition w-full text-left"
+            >
+              {/* User Avatar Circle (Peach/sand background) */}
+              <div className="w-8 h-8 rounded-full bg-[#FCE5D2] text-[#B85E1A] font-bold text-xs flex items-center justify-center flex-shrink-0">
+                {user?.full_name?.charAt(0) || 'С'}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-bold text-[#1A1916] truncate">
+                  {user?.full_name || 'Сайкал'}
+                </div>
+                <div className="text-[11px] text-[#8C8577] truncate">
+                  {isManager ? 'Руководитель' : 'Бухгалтер'}
+                </div>
+              </div>
+            </button>
+
+            {/* Notification Bell Icon */}
             <div className="relative" ref={notificationMenuRef}>
               <button
                 type="button"
                 onClick={() => setShowNotifMenu(!showNotifMenu)}
-                className="relative inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[10px] text-[#8C8577] hover:text-[#2B2A25] hover:bg-[#FAF8F5] transition"
+                className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-[#F6F3EE] transition relative"
                 title="Уведомления"
               >
                 <Bell className="w-4 h-4" />
                 {unreadCount > 0 && (
-                  <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-[#DD6B60] text-white text-[10px] font-bold flex items-center justify-center">
-                    {unreadCount}
-                  </span>
+                  <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#D9483B]" />
                 )}
               </button>
-
-              {/* Notification drop-down menu */}
-              {showNotifMenu && (
-                <div className="absolute right-0 mt-2 w-80 sm:w-96 max-h-[85vh] bg-white border border-[#EAE3D6] rounded-[10px] shadow-lg p-3 z-50 flex flex-col">
-                  <div className="flex items-center justify-between gap-2 pb-2 mb-2 border-b border-[#EAE3D6]">
-                    <div className="flex items-center gap-2">
-                      <Bell className="w-4 h-4 text-[#5FA07A]" />
-                      <span className="text-xs font-semibold text-[#2B2A25]">Уведомления</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {unreadCount > 0 && (
-                        <>
-                          <span className="text-[11px] text-[#8C8577]">
-                            {unreadCount} новых
-                          </span>
-                          <button
-                            type="button"
-                            onClick={handleMarkAllAsRead}
-                            disabled={markingAllRead}
-                            className="text-[11px] font-medium text-[#5FA07A] hover:underline disabled:opacity-50 disabled:no-underline"
-                          >
-                            {markingAllRead ? 'Отмечаем...' : 'Прочитать все'}
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  {notificationError && (
-                    <p role="alert" className="mb-2 text-[11px] text-[#A94442]">
-                      {notificationError}
-                    </p>
-                  )}
-
-                  <div className="max-h-[75vh] overflow-y-auto space-y-2">
-                    {notifications.length === 0 ? (
-                      <p className="text-xs text-[#8C8577] text-center py-4">Нет новых уведомлений</p>
-                    ) : (
-                      notifications.map((n) => (
-                        <div
-                          key={n.id}
-                          className={`p-2.5 rounded-[8px] text-xs transition ${
-                            n.is_read ? 'bg-[#FAF8F5] text-[#8C8577]' : 'bg-[#FBEBD9] text-[#2B2A25]'
-                          }`}
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <p className="leading-snug">{n.message}</p>
-                            {!n.is_read && (
-                              <button
-                                onClick={() => handleMarkAsRead(n.id)}
-                                className="text-[10px] text-[#DB8A3C] hover:underline flex-shrink-0"
-                                title="Отметить прочитанным"
-                              >
-                                <CheckCircle2 className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </div>
-                          <span className="text-[10px] text-[#8C8577] mt-1 block">
-                            {new Date(n.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Profile Dropdown */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setShowUserMenu(!showUserMenu)}
-                className="inline-flex max-w-[min(48vw,260px)] flex-shrink-0 items-center gap-1.5 sm:gap-2 p-1.5 sm:pl-2.5 rounded-[10px] border border-[#EAE3D6] hover:bg-[#FAF8F5] transition"
-              >
-                <div className="text-left hidden sm:block">
-                  <div className="max-w-36 truncate text-xs font-semibold text-[#2B2A25] leading-tight">
-                    {user?.full_name || 'Сотрудник'}
-                  </div>
-                  <div className="text-[11px] text-[#8C8577]">
-                    {isManager ? 'Руководитель' : 'Бухгалтер'}
-                  </div>
-                </div>
-                <div className={`w-8 h-8 flex-shrink-0 rounded-[8px] flex items-center justify-center font-bold text-xs ${
-                  isManager ? 'bg-[#FBEBD9] text-[#DB8A3C]' : 'bg-[#E7F3EB] text-[#5FA07A]'
-                }`}>
-                  {user?.full_name?.charAt(0) || 'Б'}
-                </div>
-                <ChevronDown className="w-4 h-4 flex-shrink-0 text-[#8C8577]" />
-              </button>
-
-              {showUserMenu && (
-                <div className="absolute right-0 mt-2 w-64 bg-white border border-[#EAE3D6] rounded-[10px] shadow-lg p-2 z-50">
-                <div className="px-4 py-3 border-b border-[#EAE3D6] mb-1">
-                    <p className="text-sm font-bold text-[#2B2A25]">{user?.full_name}</p>
-                    <p className="text-xs text-[#8C8577] truncate mt-0.5">{user?.email}</p>
-                    <span className={`inline-block mt-2 text-xs font-semibold px-2.5 py-1 rounded-lg ${
-                      isManager ? 'bg-[#FBEBD9] text-[#DB8A3C]' : 'bg-[#E7F3EB] text-[#5FA07A]'
-                    }`}>
-                      {isManager ? '👔 Руководитель агентства' : '🧾 Бухгалтер'}
-                    </span>
-                  </div>
-
-                  {!isConfigured && demoUsers.length > 0 && (
-                    <div className="px-4 py-3 border-b border-[#EAE3D6]">
-                      <label htmlFor="demo-user-switcher" className="block text-xs font-semibold text-[#6B6558] mb-1.5">
-                        Смотреть как
-                      </label>
-                      <select
-                        id="demo-user-switcher"
-                        value={user?.id || ''}
-                        onChange={(event) => handleSwitchUser(event.target.value)}
-                        className="w-full px-2.5 py-2 text-xs border border-[#EAE3D6] rounded-[8px] bg-white text-[#2B2A25]"
-                      >
-                        {demoUsers.map((demoUser) => (
-                          <option key={demoUser.id} value={demoUser.id}>
-                            {demoUser.role === 'manager' ? 'Руководитель' : 'Бухгалтер'} — {demoUser.full_name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                <Link
-                    to="/settings"
-                    onClick={() => setShowUserMenu(false)}
-                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-[#2B2A25] hover:bg-[#FAF8F5] rounded-xl transition"
-                  >
-                    <Settings className="w-4 h-4 text-[#8C8577]" />
-                    <span>Настройки профиля</span>
-                  </Link>
-
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-[#DD6B60] hover:bg-[#FCE6E3] rounded-xl transition mt-1"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    <span>Выйти из аккаунта</span>
-                  </button>
-                </div>
-              )}
             </div>
           </div>
+
+          {/* User Menu Dropdown */}
+          {showUserMenu && (
+            <div className="absolute bottom-full left-3 mb-2 w-64 bg-white border border-[#EAE5DD] rounded-2xl shadow-xl p-2 z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
+              <div className="px-3 py-2.5 border-b border-[#EAE5DD] mb-1">
+                <p className="text-xs font-bold text-[#1A1916]">{user?.full_name}</p>
+                <p className="text-[11px] text-gray-400 truncate">{user?.email}</p>
+                <span className="inline-block mt-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-[#E2EFE7] text-[#1E4D3B]">
+                  {isManager ? '👔 Руководитель' : '🧾 Бухгалтер'}
+                </span>
+              </div>
+
+              {/* Demo user switch */}
+              {!isConfigured && allUsers.length > 0 && (
+                <div className="px-3 py-2 border-b border-[#EAE5DD]">
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                    Войти как:
+                  </label>
+                  <div className="space-y-1">
+                    {allUsers.map((u) => (
+                      <button
+                        key={u.id}
+                        type="button"
+                        onClick={() => handleSwitchUser(u.id)}
+                        className={`w-full text-left px-2 py-1.5 rounded-lg text-xs flex items-center justify-between transition ${
+                          user?.id === u.id
+                            ? 'bg-[#E2EFE7] text-[#1E4D3B] font-semibold'
+                            : 'text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        <span className="truncate">{u.full_name}</span>
+                        <span className="text-[10px] text-gray-400 ml-1">
+                          {u.role === 'manager' ? 'Руководитель' : 'Бухгалтер'}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <Link
+                to="/settings"
+                onClick={() => setShowUserMenu(false)}
+                className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-[#F6F3EE] rounded-lg transition"
+              >
+                <Settings className="w-3.5 h-3.5 text-gray-400" />
+                <span>Настройки профиля</span>
+              </Link>
+
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-[#D9483B] hover:bg-[#FCE8E6] rounded-lg transition mt-0.5"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Выйти из аккаунта</span>
+              </button>
+            </div>
+          )}
+
+          {/* Notifications Dropdown */}
+          {showNotifMenu && (
+            <div className="absolute bottom-full right-3 mb-2 w-80 bg-white border border-[#EAE5DD] rounded-2xl shadow-xl overflow-hidden z-50">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-[#EAE5DD]">
+                <span className="text-xs font-bold text-[#1A1916]">Уведомления</span>
+                {unreadCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!user) return;
+                      setMarkingAllRead(true);
+                      await markAllNotificationsRead(user.id);
+                      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+                      setMarkingAllRead(false);
+                    }}
+                    className="text-[11px] text-[#1E4D3B] font-medium hover:underline"
+                  >
+                    {markingAllRead ? 'Отмечаем...' : 'Прочитать все'}
+                  </button>
+                )}
+              </div>
+              <div className="max-h-64 overflow-y-auto divide-y divide-[#EAE5DD]">
+                {notifications.length === 0 ? (
+                  <p className="p-4 text-center text-xs text-gray-400">Нет новых уведомлений</p>
+                ) : (
+                  notifications.map((n) => (
+                    <div
+                      key={n.id}
+                      onClick={async () => {
+                        if (!n.is_read) {
+                          await markNotificationRead(n.id);
+                          setNotifications((prev) =>
+                            prev.map((item) => (item.id === n.id ? { ...item, is_read: true } : item))
+                          );
+                        }
+                      }}
+                      className={`p-3 text-xs cursor-pointer transition ${
+                        n.is_read ? 'bg-white text-gray-600' : 'bg-[#FAF8F5] text-gray-900 font-medium'
+                      }`}
+                    >
+                      <p className="leading-snug">{n.message}</p>
+                      <span className="text-[10px] text-gray-400 mt-1 block">
+                        {new Date(n.created_at).toLocaleTimeString('ru-RU', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
         </div>
-      </div>
-    </header>
+      </aside>
+
+      {/* Modal for adding employee */}
+      <AddEmployeeModal
+        isOpen={showAddEmployeeModal}
+        onClose={() => setShowAddEmployeeModal(false)}
+        onAddEmployee={handleAddEmployee}
+      />
+    </>
   );
 };

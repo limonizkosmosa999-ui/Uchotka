@@ -88,30 +88,31 @@ export const SettingsPage: React.FC = () => {
   };
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-6 pb-4 border-b border-[#EAE3D6]">
-        <div className="w-10 h-10 rounded-[10px] bg-[#E7F3EB] text-[#5FA07A] flex items-center justify-center">
-          <Settings className="w-5 h-5" />
+    <div className="w-full min-h-screen bg-[#F4EFEA] px-8 py-7">
+      <div className="max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-6 pb-4 border-b border-[#F2ECE3]">
+          <div className="w-10 h-10 rounded-xl bg-[#E2EFE7] text-[#1E4D3B] flex items-center justify-center">
+            <Settings className="w-5 h-5" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-[#1A1916]">
+              Настройки аккаунта и уведомлений
+            </h1>
+            <p className="text-xs text-gray-500 font-medium">
+              Управление контактными данными для email-напоминаний и паролем
+            </p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-xl font-bold text-[#2B2A25]">
-            Настройки аккаунта и уведомлений
-          </h1>
-          <p className="text-xs text-[#8C8577]">
-            Управление контактными данными для email-напоминаний и паролем
-          </p>
-        </div>
-      </div>
 
-      {error && (
-        <div className="mb-6 p-3 rounded-[8px] bg-[#FCE6E3] border border-[#DD6B60]/30 text-xs text-[#DD6B60] flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 flex-shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
+        {error && (
+          <div className="mb-6 p-3 rounded-xl bg-[#FCE8E6] text-xs font-semibold text-[#D9483B] flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
 
-      <div className="space-y-6">
+        <div className="space-y-6">
         {/* Profile & Notification Email Form */}
         <div className="bg-white border border-[#EAE3D6] rounded-[10px] p-6">
           <div className="flex items-center justify-between mb-4">
@@ -173,7 +174,7 @@ export const SettingsPage: React.FC = () => {
               <button
                 type="submit"
                 disabled={savingProfile}
-                className="px-4 py-2 rounded-[8px] bg-[#5FA07A] text-white text-xs font-semibold hover:bg-[#528E6B] transition disabled:opacity-50"
+                className="px-4 py-2 rounded-lg bg-[#1E4D3B] text-white text-xs font-semibold hover:bg-[#163B2D] transition disabled:opacity-50 shadow-2xs"
               >
                 {savingProfile ? 'Сохранение...' : 'Сохранить изменения'}
               </button>
@@ -182,14 +183,14 @@ export const SettingsPage: React.FC = () => {
         </div>
 
         {/* Password Change Form */}
-        <div className="bg-white border border-[#EAE3D6] rounded-[10px] p-6">
-          <h2 className="text-sm font-bold text-[#2B2A25] flex items-center gap-2 mb-4">
-            <Lock className="w-4 h-4 text-[#C7A96E]" />
+        <div className="bg-white border border-[#EAE5DD] rounded-2xl p-6 shadow-2xs">
+          <h2 className="text-sm font-bold text-[#1A1916] flex items-center gap-2 mb-4">
+            <Lock className="w-4 h-4 text-gray-400" />
             <span>Смена пароля</span>
           </h2>
 
           {passwordSuccess && (
-            <div className="mb-4 p-2.5 rounded-[8px] bg-[#E7F3EB] border border-[#5FA07A]/30 text-xs text-[#5FA07A] flex items-center gap-2">
+            <div className="mb-4 p-2.5 rounded-lg bg-[#E2EFE7] border border-[#1E4D3B]/30 text-xs text-[#1E4D3B] flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4" />
               <span>Пароль успешно обновлен!</span>
             </div>
@@ -198,7 +199,7 @@ export const SettingsPage: React.FC = () => {
           <form onSubmit={handleChangePassword} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-[#2B2A25] mb-1">
+                <label className="block text-xs font-semibold text-[#1A1916] mb-1">
                   Новый пароль
                 </label>
                 <input
@@ -207,12 +208,12 @@ export const SettingsPage: React.FC = () => {
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="Минимум 6 символов"
-                  className="w-full px-3 py-2 text-xs bg-white border border-[#EAE3D6] rounded-[8px] focus:outline-none focus:border-[#5FA07A] text-[#2B2A25]"
+                  className="w-full px-3 py-2 text-xs bg-white border border-[#D4CDBF] rounded-lg focus:outline-none focus:border-[#1E4D3B] text-[#1A1916]"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-[#2B2A25] mb-1">
+                <label className="block text-xs font-semibold text-[#1A1916] mb-1">
                   Подтверждение пароля
                 </label>
                 <input
@@ -221,7 +222,7 @@ export const SettingsPage: React.FC = () => {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Повторите новый пароль"
-                  className="w-full px-3 py-2 text-xs bg-white border border-[#EAE3D6] rounded-[8px] focus:outline-none focus:border-[#5FA07A] text-[#2B2A25]"
+                  className="w-full px-3 py-2 text-xs bg-white border border-[#D4CDBF] rounded-lg focus:outline-none focus:border-[#1E4D3B] text-[#1A1916]"
                 />
               </div>
             </div>
@@ -230,7 +231,7 @@ export const SettingsPage: React.FC = () => {
               <button
                 type="submit"
                 disabled={savingPassword}
-                className="px-4 py-2 rounded-[8px] bg-[#2B2A25] text-white text-xs font-semibold hover:bg-black transition disabled:opacity-50"
+                className="px-4 py-2 rounded-lg bg-black text-white text-xs font-semibold hover:bg-gray-800 transition disabled:opacity-50 shadow-2xs"
               >
                 {savingPassword ? 'Обновление...' : 'Обновить пароль'}
               </button>
@@ -239,23 +240,23 @@ export const SettingsPage: React.FC = () => {
         </div>
 
         {/* Backend / Supabase Connection Status Card */}
-        <div className="bg-white border border-[#EAE3D6] rounded-[10px] p-6">
-          <h2 className="text-sm font-bold text-[#2B2A25] flex items-center gap-2 mb-2">
-            <Database className="w-4 h-4 text-[#8C8577]" />
+        <div className="bg-white border border-[#EAE5DD] rounded-2xl p-6 shadow-2xs">
+          <h2 className="text-sm font-bold text-[#1A1916] flex items-center gap-2 mb-2">
+            <Database className="w-4 h-4 text-gray-400" />
             <span>Статус подключения базы данных Supabase</span>
           </h2>
 
-          <div className="mt-3 p-3.5 rounded-[8px] bg-[#FAF8F5] border border-[#EAE3D6] flex items-start justify-between gap-3 text-xs">
+          <div className="mt-3 p-3.5 rounded-xl bg-[#FAF8F5] border border-[#EAE5DD] flex items-start justify-between gap-3 text-xs">
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <span className={`w-2 h-2 rounded-full ${isSupabaseConfigured ? 'bg-[#5FA07A]' : 'bg-[#DB8A3C]'}`} />
-                <span className="font-semibold text-[#2B2A25]">
+                <span className={`w-2 h-2 rounded-full ${isSupabaseConfigured ? 'bg-[#1E4D3B]' : 'bg-[#C47F2A]'}`} />
+                <span className="font-semibold text-[#1A1916]">
                   {isSupabaseConfigured
                     ? 'Подключено к Supabase Postgres (Live Cloud)'
                     : 'Локальный демонстрационный режим (Mock Store)'}
                 </span>
               </div>
-              <p className="text-[#8C8577] text-[11px] leading-relaxed">
+              <p className="text-gray-500 text-[11px] leading-relaxed">
                 {isSupabaseConfigured
                   ? 'Все данные синхронизируются с удаленным сервером Supabase с проверкой Row Level Security и Realtime событиями.'
                   : 'Для подключения к реальному инстансу Supabase укажите VITE_SUPABASE_URL и VITE_SUPABASE_ANON_KEY в файле .env.'}
@@ -263,6 +264,7 @@ export const SettingsPage: React.FC = () => {
             </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

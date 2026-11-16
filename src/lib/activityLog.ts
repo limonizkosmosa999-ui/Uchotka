@@ -1,6 +1,7 @@
 import { ActivityLog, ActivityActionType } from '../types';
 import { supabase, isSupabaseConfigured } from './supabase';
 import { emitMockRealtimeEvent } from './api';
+import { MOCK_ACTIVITY_LOGS } from './mockData';
 
 const LS_ACTIVITY_LOGS = 'uchotka_activity_logs';
 
@@ -109,7 +110,10 @@ export async function getActivityLogs(options?: {
   }
 
   const raw = localStorage.getItem(LS_ACTIVITY_LOGS);
-  let logs: ActivityLog[] = raw ? JSON.parse(raw) : [];
+  let logs: ActivityLog[] = raw ? JSON.parse(raw) : MOCK_ACTIVITY_LOGS;
+  if (!logs || logs.length === 0) {
+    logs = MOCK_ACTIVITY_LOGS;
+  }
 
   if (options?.companyId) {
     logs = logs.filter((l) => l.company_id === options.companyId);

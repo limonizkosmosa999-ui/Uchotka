@@ -62,6 +62,18 @@
   }
 }
 
+@layer utilities {
+  @media (min-width: 1024px) {
+    .dashboard-page .dashboard-company-sidebar {
+      display: none;
+    }
+  }
+
+  .dashboard-page .task-list > section > div:not(:first-child) {
+    display: block;
+  }
+}
+
 /* Кастомный деликатный скроллбар */
 ::-webkit-scrollbar {
   width: 6px;
@@ -88,4 +100,871 @@ input[type="checkbox"].sr-only + div {
 
 input[type="checkbox"].sr-only + div + div {
   transition: transform 0.2s ease;
+}
+
+@layer components {
+  .app-layout {
+    display: flex;
+    min-height: 100vh;
+    background-color: #F4EFEA;
+  }
+
+  .app-sidebar {
+    width: 230px;
+    min-width: 230px;
+    height: 100vh;
+    position: sticky;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+    background-color: #FFFFFF;
+    border-right: 1px solid #EAE5DD;
+    z-index: 30;
+  }
+
+  .app-main {
+    min-width: 0;
+    flex: 1;
+    width: calc(100% - 230px);
+    background-color: #F4EFEA;
+  }
+
+  .workspace-page {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 22px 24px;
+  }
+
+  .workspace-page h1 {
+    color: #242d29;
+  }
+
+  .dashboard-page > div:first-of-type {
+    margin-bottom: 14px;
+  }
+
+  .dashboard-page .task-board {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(205px, 1fr));
+    gap: 12px;
+    align-items: start;
+    overflow-x: auto;
+    padding-bottom: 8px;
+  }
+
+  .dashboard-page .task-board > section {
+    min-width: 205px;
+    padding: 9px;
+    border-radius: 10px;
+    background: #eae1d0;
+  }
+
+  .dashboard-page .task-board > section > div:first-child {
+    margin-bottom: 8px;
+  }
+
+  .dashboard-page .task-board > section > div:not(:first-child) {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 7px;
+  }
+
+  .dashboard-page .task-board > section > div:not(:first-child) > div {
+    padding: 10px;
+    box-shadow: none;
+  }
+
+  .calendar-page > div:nth-child(2) {
+    grid-template-columns: minmax(0, 2fr) minmax(270px, 0.8fr);
+    gap: 14px;
+  }
+
+  .calendar-month {
+    grid-column: auto;
+    padding: 0;
+    border-radius: 0;
+    overflow: hidden;
+  }
+
+  .calendar-month > .grid:first-child {
+    padding: 9px 8px;
+    text-align: left;
+  }
+
+  .calendar-month > .grid:nth-child(2) {
+    gap: 0;
+    padding: 0;
+  }
+
+  .calendar-month > .grid:nth-child(2) > div {
+    min-height: 88px;
+    border-radius: 0;
+    border-color: #eee8dd;
+    padding: 6px;
+  }
+
+  .calendar-month > div:last-child {
+    margin: 0;
+    padding: 12px;
+  }
+
+  .calendar-day-panel {
+    min-height: 100%;
+    border-radius: 0;
+  }
+
+  .tax-calendar-page > div:first-child {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .tax-calendar-page > div:first-child > div:last-child {
+    flex-wrap: nowrap;
+    align-self: stretch;
+    justify-content: flex-start;
+    overflow-x: auto;
+    border: 0;
+    border-bottom: 1px solid #dcd2c2;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+  }
+
+  .tax-calendar-page > div:first-child > div:last-child button {
+    padding: 8px 12px;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .tax-calendar-page > div:first-child > div:last-child button[class*="bg-white"] {
+    border-bottom: 2px solid #2e7053;
+    color: #2e7053;
+  }
+
+  .company-new-page,
+  .task-new-page {
+    max-width: 1100px;
+    padding-top: 22px;
+  }
+
+  .task-compose-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 20px;
+    align-items: start;
+  }
+
+  .task-compose-settings,
+  .task-compose-documents {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .task-list-header,
+  .task-list-row {
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr) minmax(110px, 0.45fr) 75px 70px;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .task-list-header {
+    padding: 8px 12px;
+    color: #858b86;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .task-list {
+    overflow: hidden;
+    border: 1px solid #e8e0d4;
+    border-radius: 9px;
+    background: #fff;
+  }
+
+  .task-list > section {
+    padding: 0;
+    border-radius: 0;
+    background: #fff;
+  }
+
+  .task-list > section > div:first-child {
+    margin: 0;
+    padding: 8px 12px;
+    border-top: 1px solid #eee8dd;
+    background: #f7f3eb;
+  }
+
+  .task-list > section > div:first-child h2 {
+    font-size: 11px;
+  }
+
+  .task-list .task-card-list {
+    margin: 0;
+    border: 0;
+    border-top: 1px solid #eee8dd;
+    border-radius: 0;
+    padding: 0;
+    box-shadow: none;
+  }
+
+  .task-list-row {
+    width: 100%;
+    min-height: 38px;
+    padding: 7px 12px;
+    border: 0;
+    background: #fff;
+    color: #2b2a25;
+    text-align: left;
+  }
+
+  .task-list-row:hover {
+    background: #f7f8f5;
+  }
+
+  .task-list-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  .task-list-title,
+  .task-list-company,
+  .task-list-date,
+  .task-list-remaining {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  @media (min-width: 1024px) {
+    .dashboard-company-sidebar {
+      display: none;
+    }
+  }
+
+  .task-list-title {
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .task-list-company,
+  .task-list-date {
+    color: #6b716c;
+    font-size: 10px;
+  }
+
+  .task-list-remaining {
+    color: #bc412f;
+    font-size: 10px;
+    font-weight: 700;
+    text-align: right;
+  }
+
+  .company-detail-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 250px;
+    align-items: stretch;
+    gap: 18px;
+  }
+
+  .company-detail-main {
+    min-width: 0;
+  }
+
+  .company-detail-main .company-documents-layout {
+    grid-template-columns: minmax(0, 1.5fr) minmax(260px, 0.9fr);
+    gap: 14px;
+  }
+
+  .company-detail-main > .company-detail-stats {
+    gap: 0;
+    margin-bottom: 12px;
+    border-block: 1px solid #e3daca;
+    background: transparent;
+  }
+
+  .company-detail-stats > div {
+    padding: 10px 12px;
+    border: 0;
+    border-right: 1px solid #e3daca;
+    border-radius: 0;
+    background: transparent;
+    text-align: left;
+  }
+
+  .company-detail-stats > div:last-child {
+    border-right: 0;
+  }
+
+  .company-detail-stats > div > span:last-child {
+    font-size: 18px;
+  }
+
+  .company-detail-aside {
+    position: sticky;
+    top: 0;
+    display: flex;
+    min-height: calc(100vh - 24px);
+    flex-direction: column;
+    border-inline: 1px solid #e7e0d6;
+    background: #fff;
+    padding: 18px 16px;
+  }
+
+  .company-detail-aside h2 {
+    margin-bottom: 12px;
+    color: #737d76;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .company-detail-field {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    border-top: 1px solid #eee8dd;
+    padding: 9px 0;
+    font-size: 10px;
+  }
+
+  .company-detail-field span {
+    color: #858b86;
+  }
+
+  .company-detail-field strong {
+    color: #2b2a25;
+    text-align: right;
+  }
+
+  .company-tax-note {
+    margin-top: 12px;
+    border-radius: 8px;
+    background: #f5f0e7;
+    padding: 12px;
+    color: #59615b;
+    font-size: 10px;
+  }
+
+  .company-tax-note strong {
+    display: block;
+    margin-bottom: 4px;
+    color: #2b2a25;
+  }
+
+  .company-tax-note p {
+    line-height: 1.5;
+  }
+
+  .company-detail-actions {
+    display: grid;
+    gap: 7px;
+    margin-top: auto;
+    padding-top: 16px;
+  }
+
+  .company-primary-action,
+  .company-secondary-action,
+  .company-delete-action {
+    display: block;
+    border-radius: 7px;
+    padding: 9px 10px;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .company-primary-action {
+    background: #2e7053;
+    color: #fff;
+  }
+
+  .company-secondary-action {
+    border: 1px solid #e1d7c6;
+    background: #fff;
+    color: #2b2a25;
+  }
+
+  .company-delete-action {
+    color: #c0392b;
+  }
+
+  .tax-monthly-layout,
+  .tax-directory-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 260px;
+    align-items: stretch;
+    gap: 20px;
+  }
+
+  .tax-monthly-content,
+  .tax-directory-content {
+    min-width: 0;
+  }
+
+  .tax-calendar-aside,
+  .tax-rule-details {
+    position: sticky;
+    top: 0;
+    display: flex;
+    min-height: calc(100vh - 24px);
+    flex-direction: column;
+    border-inline: 1px solid #e7e0d6;
+    background: #fff;
+    padding: 20px 16px;
+  }
+
+  .tax-aside-eyebrow {
+    color: #7d867f;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .tax-aside-total {
+    margin-top: 6px;
+    color: #2e7053;
+    font-size: 42px;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .tax-calendar-aside > strong {
+    margin: -30px 0 16px 48px;
+    font-size: 14px;
+  }
+
+  .tax-aside-count {
+    display: flex;
+    justify-content: space-between;
+    border-top: 1px solid #eee8dd;
+    padding: 9px 0;
+    font-size: 11px;
+  }
+
+  .tax-aside-count span {
+    color: #747d76;
+  }
+
+  .tax-calendar-aside > p {
+    margin-top: 10px;
+    color: #747d76;
+    font-size: 11px;
+    line-height: 1.5;
+  }
+
+  .tax-aside-actions {
+    display: grid;
+    gap: 7px;
+    margin-top: auto;
+    padding-top: 16px;
+  }
+
+  .tax-aside-actions button,
+  .tax-rule-details > button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border: 1px solid #e1d7c6;
+    border-radius: 7px;
+    background: #fff;
+    padding: 9px 10px;
+    color: #2b2a25;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .tax-aside-actions button:first-child,
+  .tax-rule-details > button {
+    border-color: #2e7053;
+    background: #2e7053;
+    color: #fff;
+  }
+
+  .tax-rules-table {
+    overflow: hidden;
+    border: 1px solid #e8e0d4;
+    border-radius: 9px;
+    background: #fff;
+  }
+
+  .tax-rules-header,
+  .tax-rule-row {
+    display: grid;
+    grid-template-columns: 78px minmax(0, 1fr) 125px 145px;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .tax-rules-header {
+    padding: 9px 14px;
+    background: #faf7f1;
+    color: #858b86;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .tax-rule-row {
+    width: 100%;
+    min-height: 45px;
+    border: 0;
+    border-top: 1px solid #eee8dd;
+    background: #fff;
+    padding: 6px 14px;
+    text-align: left;
+  }
+
+  .tax-rule-row:hover,
+  .tax-rule-row.is-selected {
+    background: #f0f5f1;
+  }
+
+  .tax-rule-row.is-selected {
+    box-shadow: inset 3px 0 #2e7053;
+  }
+
+  .tax-rule-code {
+    display: inline-block;
+    width: fit-content;
+    border-radius: 5px;
+    background: #e2eee6;
+    padding: 4px 7px;
+    color: #2e7053;
+    font-size: 10px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .tax-rule-name {
+    display: grid;
+    gap: 2px;
+  }
+
+  .tax-rule-name strong,
+  .tax-rule-deadline {
+    color: #2b2a25;
+    font-size: 10px;
+  }
+
+  .tax-rule-name small,
+  .tax-rule-period {
+    color: #747d76;
+    font-size: 9px;
+  }
+
+  .tax-rule-deadline {
+    text-align: right;
+    line-height: 1.4;
+  }
+
+  .tax-rule-details h2 {
+    margin: 12px 0 8px;
+    color: #252e29;
+    font-size: 17px;
+    line-height: 1.3;
+  }
+
+  .tax-rule-details > p,
+  .tax-rule-details section p {
+    color: #5f6862;
+    font-size: 10px;
+    line-height: 1.5;
+  }
+
+  .tax-rule-details section {
+    margin-top: 16px;
+    border-top: 1px solid #eee8dd;
+    padding-top: 12px;
+  }
+
+  .tax-rule-details section > span {
+    color: #7d867f;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .tax-rule-details > button {
+    margin-top: auto;
+  }
+
+  .notification-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgb(33 35 31 / 24%);
+    padding: 20px;
+  }
+
+  .notification-panel {
+    display: flex;
+    width: min(100%, 560px);
+    max-height: min(82vh, 760px);
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid #e8e0d4;
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 18px 55px rgb(34 35 31 / 18%);
+  }
+
+  .notification-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-bottom: 1px solid #eee8dd;
+    padding: 18px 22px;
+    color: #252e29;
+    font-size: 19px;
+    font-weight: 700;
+  }
+
+  .notification-panel-header > div {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    color: #737d76;
+    font-size: 12px;
+    font-weight: 400;
+  }
+
+  .notification-panel-header button {
+    border: 0;
+    background: transparent;
+    color: #2e7053;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .notification-panel-header button:last-child {
+    display: flex;
+    color: #747d76;
+  }
+
+  .notification-list {
+    overflow-y: auto;
+  }
+
+  .notification-item {
+    display: block;
+    width: 100%;
+    border: 0;
+    border-bottom: 1px solid #eee8dd;
+    background: #fff;
+    padding: 15px 20px;
+    color: #66706a;
+    text-align: left;
+  }
+
+  .notification-item.is-unread {
+    background: #fbf3e2;
+    color: #292e2a;
+  }
+
+  .notification-item > div {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .notification-item p {
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  .notification-item > span {
+    display: block;
+    margin: 5px 0 0 20px;
+    color: #8d958f;
+    font-size: 12px;
+  }
+
+  .notification-dot {
+    width: 8px;
+    height: 8px;
+    flex: none;
+    margin-top: 7px;
+    border-radius: 50%;
+    background: #c68a24;
+  }
+
+  .task-details-backdrop {
+    background: rgb(61 58 48 / 38%);
+  }
+
+  .task-details-dialog {
+    max-width: 610px;
+    border: 1px solid #e8e0d4;
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgb(34 35 31 / 20%);
+  }
+
+  .company-new-page > div:nth-child(2),
+  .task-new-page > div:nth-child(2) {
+    border-color: #e9e1d3;
+    border-radius: 10px;
+    box-shadow: none;
+  }
+
+  .company-new-page > div:nth-child(2) > div:first-child,
+  .task-new-page > div:nth-child(2) > div:first-child {
+    align-items: flex-start;
+  }
+
+  .workspace-page input:not([type="checkbox"]),
+  .workspace-page select,
+  .workspace-page textarea {
+    border-color: #e1d7c6;
+    border-radius: 7px;
+  }
+
+  .workspace-page button[type="submit"],
+  .workspace-page a[href="/tasks/new"] {
+    background-color: #2e7053;
+  }
+
+  @media (min-width: 1024px) {
+    .app-main {
+      padding-bottom: 0;
+    }
+
+    .app-layout > nav {
+      display: none;
+    }
+  }
+
+  @media (max-width: 1023px) {
+    .app-sidebar {
+      display: none;
+    }
+
+    .app-main {
+      width: 100%;
+    }
+  }
+
+  @media (max-width: 900px) {
+    .workspace-page {
+      padding: 18px 16px;
+    }
+
+    .dashboard-page .task-board {
+      grid-template-columns: repeat(2, minmax(205px, 1fr));
+    }
+
+    .calendar-page > div:nth-child(2) {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .task-compose-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .company-detail-layout {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .company-detail-aside {
+      position: static;
+      min-height: 0;
+    }
+
+    .tax-monthly-layout,
+    .tax-directory-layout {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .tax-calendar-aside,
+    .tax-rule-details {
+      position: static;
+      min-height: 0;
+    }
+
+    .tax-aside-actions,
+    .tax-rule-details > button {
+      margin-top: 20px;
+    }
+  }
+
+  @media (max-width: 600px) {
+    .dashboard-page .task-board {
+      grid-template-columns: minmax(0, 1fr);
+      overflow: visible;
+    }
+
+    .dashboard-page .task-board > section {
+      min-width: 0;
+    }
+
+    .calendar-month > .grid:nth-child(2) > div {
+      min-height: 64px;
+    }
+
+    .calendar-month > .grid:nth-child(2) > div > div:last-child {
+      display: none;
+    }
+
+    .task-list-header,
+    .task-list-row {
+      grid-template-columns: 14px minmax(0, 1fr) 58px 56px;
+    }
+
+    .task-list-header > span:nth-child(3),
+    .task-list-row > .task-list-company {
+      display: none;
+    }
+
+    .tax-rules-header,
+    .tax-rule-row {
+      grid-template-columns: 68px minmax(0, 1fr) 72px;
+      gap: 7px;
+    }
+
+    .tax-rules-header > span:nth-child(3),
+    .tax-rule-period {
+      display: none;
+    }
+
+    .tax-rule-name strong,
+    .tax-rule-deadline {
+      font-size: 9px;
+    }
+
+    .notification-overlay {
+      padding: 12px;
+    }
+
+    .notification-panel-header {
+      padding: 15px;
+      font-size: 17px;
+    }
+
+    .notification-panel-header > div {
+      gap: 8px;
+    }
+
+    .notification-item {
+      padding: 13px 15px;
+    }
+
+    .notification-item p {
+      font-size: 13px;
+    }
+  }
 }

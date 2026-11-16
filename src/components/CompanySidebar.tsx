@@ -9,6 +9,7 @@ interface CompanySidebarProps {
   selectedCompanyId: string | null;
   onSelectCompany: (id: string | null) => void;
   loading?: boolean;
+  className?: string;
 }
 
 export const CompanySidebar: React.FC<CompanySidebarProps> = ({
@@ -17,6 +18,7 @@ export const CompanySidebar: React.FC<CompanySidebarProps> = ({
   selectedCompanyId,
   onSelectCompany,
   loading = false,
+  className = '',
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -38,7 +40,7 @@ export const CompanySidebar: React.FC<CompanySidebarProps> = ({
   const totalActiveTasks = tasks.filter((t) => t.status !== 'done').length;
 
   return (
-    <aside className="w-full lg:w-80 flex-shrink-0 bg-white border border-[#EAE3D6] rounded-[10px] p-4 flex flex-col h-[calc(100vh-6rem)] sticky top-20">
+    <aside className={`w-full lg:w-80 flex-shrink-0 bg-white border border-[#EAE3D6] rounded-[10px] p-4 flex flex-col h-[calc(100vh-6rem)] sticky top-20 ${className}`}>
       {/* Header and Add Button */}
       <div className="flex items-center justify-between gap-2 mb-3">
         <div>

@@ -26,6 +26,7 @@ interface TaskCardProps {
   onTaskUpdated?: (updated: Task) => void;
   onTaskDeleted?: (id: string) => void;
   showAccountant?: boolean;
+  viewMode?: 'board' | 'list';
 }
 
 export const TaskCard: React.FC<TaskCardProps> = ({
@@ -33,6 +34,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   onTaskUpdated,
   onTaskDeleted,
   showAccountant = false,
+  viewMode = 'board',
 }) => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -47,6 +49,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   const isManager = user?.role === 'manager';
   const badge = getUrgencyBadge(task);
   const daysLeft = getDaysLeftText(task.due_date);
+  const compactDaysLeft = daysLeft
+    .replace(/^просрочено на /, '−')
+    .replace(/^через /, '+');
   const statusLabel: Record<TaskStatus, string> = {
     in_progress: 'В работе',
     submitted: 'Отправлено',
@@ -140,7 +145,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         task.is_escalated
           ? 'border-[#DD6B60] ring-1 ring-[#DD6B60]/40'
           : 'border-[#EAE3D6] hover:border-[#C7A96E]'
-      } ${loading ? 'opacity-60 pointer-events-none' : ''}`}
+      } ${loading ? 'opacity-60 pointer-events-none' : ''} ${viewMode === 'list' ? 'task-card-list' : ''}`}
     >
       {actionError && (
         <div className="mb-3 rounded-lg bg-[#FCE6E3] border border-[#DD6B60]/30 p-2 text-xs text-[#A94442]">
@@ -169,6 +174,21 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         </div>
       )}
 
+      {viewMode === 'list' ? (
+        <button
+          type="button"
+          className="task-list-row"
+          onClick={() => setShowDetails(true)}
+          aria-label={`Открыть задачу: ${task.doc_type}`}
+        >
+          <span className="task-list-status-dot" style={{ backgroundColor: badge.dotColor }} />
+          <span className="task-list-title">{task.doc_type}</span>
+          <span className="task-list-company">{task.company?.name || '—'}</span>
+          <span className="task-list-date">{formatDateRu(task.due_date, 'd MMM')}</span>
+          <span className="task-list-remaining">{compactDaysLeft}</span>
+        </button>
+      ) : (
+      <>
       {/* Top Header: Badge & Status Menu */}
       <div className="flex items-center justify-between gap-2 mb-2.5">
         <div
@@ -445,10 +465,12 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           )}
         </div>
       </div>
+      </>
+      )}
     </div>
     {showDetails && (
       <div
-        className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center p-4"
+        className="task-details-backdrop fixed inset-0 z-[60] bg-black/40 flex items-center justify-center p-4"
         onMouseDown={(event) => {
           if (event.target === event.currentTarget) setShowDetails(false);
         }}
@@ -457,7 +479,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           role="dialog"
           aria-modal="true"
           aria-labelledby={`task-details-title-${task.id}`}
-          className="w-full max-w-xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl"
+          className="task-details-dialog w-full max-w-xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl"
         >
           <div className="flex items-start justify-between gap-4 px-6 py-5 border-b border-[#EAE3D6]">
             <div>

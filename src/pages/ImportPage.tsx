@@ -95,19 +95,19 @@ export const ImportPage: React.FC = () => {
   const warningsCount = items.reduce((acc, i) => acc + i.warnings.length, 0);
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="w-full min-h-screen bg-[#F4EFEA] px-8 py-7">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="px-2 py-0.5 rounded-full bg-[#E7F3EB] text-[#5FA07A] text-[11px] font-bold">
+            <span className="px-2 py-0.5 rounded-full bg-[#E2EFE7] text-[#1E4D3B] text-[11px] font-bold">
               Миграция данных
             </span>
           </div>
-          <h1 className="text-2xl font-bold text-[#2B2A25] tracking-tight">
+          <h1 className="text-2xl font-extrabold text-[#1A1916] tracking-tight">
             Импорт из Excel / Google Таблиц
           </h1>
-          <p className="text-xs text-[#8C8577] mt-1 max-w-xl">
+          <p className="text-xs text-gray-500 font-medium mt-0.5 max-w-xl">
             Перенесите базу компаний и задач агентства из таблиц за пару минут. Автоматическое распознавание ИНН, налоговых режимов и дедлайнов.
           </p>
         </div>
@@ -115,35 +115,35 @@ export const ImportPage: React.FC = () => {
         <button
           type="button"
           onClick={downloadSampleImportExcel}
-          className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-[#EAE3D6] bg-white hover:bg-[#FAF8F5] text-xs font-semibold text-[#2B2A25] shadow-sm transition self-start sm:self-auto"
+          className="flex items-center gap-2 px-3.5 py-2 rounded-lg border border-[#D4CDBF] bg-white hover:bg-[#F9F7F3] text-xs font-semibold text-[#1A1916] shadow-2xs transition self-start sm:self-auto"
         >
-          <Download className="w-4 h-4 text-[#5FA07A]" />
+          <Download className="w-4 h-4 text-[#1E4D3B]" />
           <span>Скачать образец таблицы (.xlsx)</span>
         </button>
       </div>
 
       {/* Success banner */}
       {successResult && (
-        <div className="p-6 rounded-2xl bg-[#E7F3EB] border border-[#5FA07A]/40 mb-6 animate-fade-in">
+        <div className="p-6 rounded-2xl bg-[#E2EFE7] border border-[#1E4D3B]/40 mb-6 animate-fade-in shadow-2xs">
           <div className="flex items-center gap-3 mb-2">
-            <CheckCircle2 className="w-6 h-6 text-[#5FA07A]" />
-            <h3 className="text-base font-bold text-[#2B2A25]">
+            <CheckCircle2 className="w-6 h-6 text-[#1E4D3B]" />
+            <h3 className="text-base font-bold text-[#1A1916]">
               Импорт успешно завершён!
             </h3>
           </div>
-          <p className="text-xs text-[#2B2A25] mb-4">
+          <p className="text-xs text-[#1A1916] mb-4">
             Создано компаний: <strong>{successResult.companiesCount}</strong> • Создано сопутствующих задач: <strong>{successResult.tasksCount}</strong>.
           </p>
           <div className="flex items-center gap-3">
             <Link
               to="/dashboard"
-              className="px-4 py-2 rounded-xl bg-[#5FA07A] text-white text-xs font-semibold hover:bg-[#528E6B]"
+              className="px-4 py-2 rounded-lg bg-[#1E4D3B] text-white text-xs font-semibold hover:bg-[#163B2D] transition shadow-2xs"
             >
               Перейти к рабочему столу
             </Link>
             <Link
               to="/tax-calendar"
-              className="px-4 py-2 rounded-xl bg-white border border-[#5FA07A]/40 text-[#5FA07A] text-xs font-semibold hover:bg-[#FAF8F5]"
+              className="px-4 py-2 rounded-lg bg-white border border-[#D4CDBF] text-[#1A1916] text-xs font-semibold hover:bg-[#F9F7F3] transition shadow-2xs"
             >
               Налоговый календарь
             </Link>
@@ -154,14 +154,14 @@ export const ImportPage: React.FC = () => {
       {/* Input Options Card */}
       {!successResult && (
         <div className="bg-white border border-[#EAE3D6] rounded-2xl p-6 shadow-sm mb-6">
-          <div className="flex items-center gap-2 border-b border-[#EAE3D6] pb-3 mb-4">
+          <div className="flex items-center gap-2 border-b border-[#EAE5DD] pb-3 mb-4">
             <button
               type="button"
               onClick={() => setInputMode('file')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition ${
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition ${
                 inputMode === 'file'
-                  ? 'bg-[#E7F3EB] text-[#5FA07A]'
-                  : 'text-[#8C8577] hover:text-[#2B2A25]'
+                  ? 'bg-black text-white shadow-2xs'
+                  : 'text-gray-600 hover:text-black'
               }`}
             >
               <Upload className="w-4 h-4" />
@@ -171,10 +171,10 @@ export const ImportPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setInputMode('paste')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition ${
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition ${
                 inputMode === 'paste'
-                  ? 'bg-[#E7F3EB] text-[#5FA07A]'
-                  : 'text-[#8C8577] hover:text-[#2B2A25]'
+                  ? 'bg-black text-white shadow-2xs'
+                  : 'text-gray-600 hover:text-black'
               }`}
             >
               <Clipboard className="w-4 h-4" />
@@ -183,15 +183,15 @@ export const ImportPage: React.FC = () => {
           </div>
 
           {inputMode === 'file' ? (
-            <div className="border-2 border-dashed border-[#EAE3D6] rounded-2xl p-8 text-center hover:border-[#5FA07A] transition bg-[#FAF8F5]/50">
-              <Upload className="w-10 h-10 text-[#5FA07A] mx-auto mb-3" />
-              <p className="text-xs font-semibold text-[#2B2A25] mb-1">
+            <div className="border-2 border-dashed border-[#D4CDBF] rounded-2xl p-8 text-center hover:border-[#1E4D3B] transition bg-[#FAF8F5]/50">
+              <Upload className="w-10 h-10 text-[#1E4D3B] mx-auto mb-3" />
+              <p className="text-xs font-semibold text-[#1A1916] mb-1">
                 Выберите файл таблицы на компьютере
               </p>
-              <p className="text-[11px] text-[#8C8577] mb-4">
+              <p className="text-[11px] text-gray-500 mb-4">
                 Поддерживаются форматы Excel (.xlsx, .xls) и CSV
               </p>
-              <label className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#5FA07A] hover:bg-[#528E6B] text-white text-xs font-semibold cursor-pointer shadow-sm transition">
+              <label className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1E4D3B] hover:bg-[#163B2D] text-white text-xs font-semibold cursor-pointer shadow-2xs transition">
                 <span>Выбрать файл</span>
                 <input
                   type="file"
@@ -201,7 +201,7 @@ export const ImportPage: React.FC = () => {
                 />
               </label>
               {fileName && (
-                <div className="mt-3 text-xs text-[#5FA07A] font-medium flex items-center justify-center gap-1.5">
+                <div className="mt-3 text-xs text-[#1E4D3B] font-medium flex items-center justify-center gap-1.5">
                   <FileCheck className="w-4 h-4" />
                   <span>Выбран файл: {fileName}</span>
                 </div>
@@ -209,7 +209,7 @@ export const ImportPage: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-3">
-              <p className="text-xs text-[#8C8577]">
+              <p className="text-xs text-gray-500">
                 Выделите строки в вашей Google Таблице или Excel (включая строку заголовков), скопируйте (Ctrl+C / Cmd+C) и вставьте в поле ниже:
               </p>
               <textarea
@@ -217,13 +217,13 @@ export const ImportPage: React.FC = () => {
                 value={pastedText}
                 onChange={(e) => setPastedText(e.target.value)}
                 placeholder="Вставьте скопированные строки таблицы сюда..."
-                className="w-full p-3.5 border border-[#EAE3D6] rounded-xl text-xs font-mono text-[#2B2A25] focus:outline-none focus:border-[#5FA07A] resize-none bg-[#FAF8F5]/50"
+                className="w-full p-3.5 border border-[#D4CDBF] rounded-xl text-xs font-mono text-[#1A1916] focus:outline-none focus:border-[#1E4D3B] resize-none bg-[#FAF8F5]/50"
               />
               <button
                 type="button"
                 onClick={handleParsePasted}
                 disabled={!pastedText.trim() || loading}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#5FA07A] hover:bg-[#528E6B] text-white text-xs font-semibold transition disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1E4D3B] hover:bg-[#163B2D] text-white text-xs font-semibold transition disabled:opacity-50 shadow-2xs"
               >
                 <span>Распознать данные</span>
               </button>

@@ -37,7 +37,7 @@ const getToday = () => {
 };
 
 const CATEGORIES: { id: DocumentCategory | 'all'; label: string; badgeColor: string }[] = [
-  { id: 'all', label: 'Все документы', badgeColor: 'bg-gray-100 text-gray-700' },
+  { id: 'all', label: 'Все', badgeColor: 'bg-gray-100 text-gray-700' },
   { id: 'tax_report', label: 'Отчётность ГНС', badgeColor: 'bg-[#E7F3EB] text-[#5FA07A]' },
   { id: 'socfund', label: 'Соцфонд', badgeColor: 'bg-blue-50 text-blue-700' },
   { id: 'primary', label: 'Первичка / Счета', badgeColor: 'bg-amber-50 text-amber-700' },
@@ -167,7 +167,7 @@ export const CompanyDocumentsPanel: React.FC<CompanyDocumentsPanelProps> = ({
 
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.8fr)] gap-5 items-start">
+    <div className="company-documents-layout grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.8fr)] gap-5 items-start">
       <section className="bg-white border border-[#EAE3D6] rounded-[10px] p-5">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
           <div className="flex items-center gap-2">

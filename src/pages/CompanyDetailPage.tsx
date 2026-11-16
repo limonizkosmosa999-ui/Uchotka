@@ -6,11 +6,8 @@ import {
   PlusCircle, 
   FileText, 
   User, 
-  Percent, 
   CheckCircle2, 
   Clock, 
-  Trash2,
-  CalendarDays,
   History,
   Download,
   Phone,
@@ -116,14 +113,16 @@ export const CompanyDetailPage: React.FC = () => {
   const historyTasks = tasks.filter((t) => t.status === 'done' || t.status === 'submitted');
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="w-full min-h-screen bg-[#F4EFEA] px-8 py-7">
+      <div className="company-detail-layout">
+        <div className="company-detail-main">
       {pageError && (
-        <div className="mb-5 p-3 rounded-lg bg-[#FCE6E3] text-sm text-[#A94442]">
+        <div className="mb-5 p-3 rounded-xl bg-[#FCE8E6] text-xs font-semibold text-[#D9483B]">
           Не удалось полностью загрузить карточку: {pageError}
         </div>
       )}
       {activityError && (
-        <div className="mb-5 p-3 rounded-lg bg-[#FCE6E3] text-sm text-[#A94442]">
+        <div className="mb-5 p-3 rounded-xl bg-[#FCE8E6] text-xs font-semibold text-[#D9483B]">
           {activityError}
         </div>
       )}
@@ -131,7 +130,7 @@ export const CompanyDetailPage: React.FC = () => {
       <div className="mb-6">
         <Link
           to="/dashboard"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#8C8577] hover:text-[#2B2A25] transition"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-black transition"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Назад к задачам</span>
@@ -139,7 +138,7 @@ export const CompanyDetailPage: React.FC = () => {
       </div>
 
       {/* Main Company Card Header */}
-      <div className="bg-white border border-[#EAE3D6] rounded-[10px] p-6 mb-6">
+      <div className="bg-white border border-[#EAE5DD] rounded-2xl p-6 mb-6 shadow-2xs">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex items-start gap-4">
             <div className="w-14 h-14 rounded-[10px] bg-[#F6EFDE] text-[#C7A96E] flex items-center justify-center flex-shrink-0">
@@ -203,56 +202,12 @@ export const CompanyDetailPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Action buttons */}
-          <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
-            <Link
-              to={`/tax-calendar?tab=generator&company_id=${company.id}`}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[10px] text-xs font-semibold text-[#DB8A3C] bg-[#FBEBD9] hover:bg-[#f6e1c7] transition"
-            >
-              <CalendarDays className="w-4 h-4" />
-              <span>Задачи на год</span>
-            </Link>
-
-            <Link
-              to={`/tasks/new?company_id=${company.id}`}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] text-xs font-medium text-white bg-[#5FA07A] hover:bg-[#528E6B] transition"
-            >
-              <PlusCircle className="w-4 h-4" />
-              <span>+ Новая задача</span>
-            </Link>
-
-            <button
-              onClick={handleDeleteCompany}
-              className="p-2 rounded-[10px] border border-[#DD6B60]/30 text-[#DD6B60] hover:bg-[#FCE6E3] transition"
-              title="Удалить компанию"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          </div>
         </div>
 
-        {/* Tax Details Box */}
-        {company.tax_type?.rate_description && (
-          <div className="mt-4 pt-4 border-t border-[#EAE3D6] bg-[#FAF8F5] p-3 rounded-[8px] flex items-start gap-2.5">
-            <Percent className="w-4 h-4 text-[#C7A96E] flex-shrink-0 mt-0.5" />
-            <div className="text-xs">
-              <span className="font-semibold text-[#2B2A25]">Ставки налогообложения: </span>
-              <span className="text-[#8C8577]">{company.tax_type.rate_description}</span>
-            </div>
-          </div>
-        )}
-
-        {/* Notes */}
-        {company.notes && (
-          <div className="mt-3 text-xs text-[#8C8577] bg-white border border-[#EAE3D6] p-3 rounded-[8px]">
-            <span className="font-semibold text-[#2B2A25] block mb-0.5">Примечания по клиенту:</span>
-            {company.notes}
-          </div>
-        )}
       </div>
 
       {/* Stats Summary Bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 mb-6">
+      <div className="company-detail-stats grid grid-cols-2 sm:grid-cols-4 gap-3.5 mb-6">
         <div className="bg-white border border-[#EAE3D6] rounded-[10px] p-3.5 text-center">
           <span className="text-xs text-[#8C8577] block">Всего задач</span>
           <span className="text-lg font-bold text-[#2B2A25]">{tasks.length}</span>
@@ -453,6 +408,47 @@ export const CompanyDetailPage: React.FC = () => {
           ))}
         </div>
       )}
+        </div>
+
+        <aside className="company-detail-aside">
+          <section>
+            <h2>О компании</h2>
+            <div className="company-detail-field"><span>Форма</span><strong>{company.client_type}</strong></div>
+            <div className="company-detail-field"><span>ИНН</span><strong>{company.inn}</strong></div>
+            <div className="company-detail-field"><span>Режим</span><strong>{company.tax_type?.name || '—'}</strong></div>
+            <div className="company-detail-field">
+              <span>Бухгалтер</span>
+              <strong>{company.owner?.full_name || 'Не назначен'}</strong>
+            </div>
+          </section>
+
+          {company.tax_type?.rate_description && (
+            <section className="company-tax-note">
+              <strong>Ставки налогообложения</strong>
+              <p>{company.tax_type.rate_description}</p>
+            </section>
+          )}
+
+          {company.notes && (
+            <section className="company-tax-note">
+              <strong>Примечания</strong>
+              <p>{company.notes}</p>
+            </section>
+          )}
+
+          <div className="company-detail-actions">
+            <Link to={`/tasks/new?company_id=${company.id}`} className="company-primary-action">
+              + Новая задача
+            </Link>
+            <Link to={`/tax-calendar?tab=generator&company_id=${company.id}`} className="company-secondary-action">
+              Задачи на год
+            </Link>
+            <button type="button" onClick={handleDeleteCompany} className="company-delete-action">
+              Удалить компанию
+            </button>
+          </div>
+        </aside>
+      </div>
     </div>
   );
 };

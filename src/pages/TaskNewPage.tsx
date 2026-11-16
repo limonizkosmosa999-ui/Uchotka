@@ -174,32 +174,33 @@ export const TaskNewPage: React.FC = () => {
   };
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
-      <div className="mb-6">
-        <Link
-          to="/dashboard"
-          className="inline-flex items-center gap-2 text-sm font-semibold text-[#8C8577] hover:text-[#2B2A25] transition"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Назад</span>
-        </Link>
-      </div>
-
-      <div className="bg-white border border-[#D4C9B0] rounded-2xl p-6 sm:p-8">
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-7 pb-5 border-b border-[#EAE3D6]">
-          <div className="w-12 h-12 rounded-xl bg-[#E7F3EB] text-[#4A8C68] flex items-center justify-center flex-shrink-0">
-            <CheckSquare className="w-6 h-6" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-[#1E1D19]">
-              Новые задачи по документам
-            </h1>
-            <p className="text-sm text-[#6B6558]">
-              Добавьте один или несколько отчётов/документов за раз
-            </p>
-          </div>
+    <div className="w-full min-h-screen bg-[#F4EFEA] px-8 py-7">
+      <div className="max-w-4xl mx-auto">
+        <div className="mb-6">
+          <Link
+            to="/dashboard"
+            className="inline-flex items-center gap-2 text-xs font-semibold text-gray-500 hover:text-black transition"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Назад</span>
+          </Link>
         </div>
+
+        <div className="bg-white border border-[#EAE5DD] rounded-2xl p-6 sm:p-8 shadow-2xs">
+          {/* Header */}
+          <div className="flex items-center gap-3 mb-7 pb-5 border-b border-[#F2ECE3]">
+            <div className="w-10 h-10 rounded-xl bg-[#E2EFE7] text-[#1E4D3B] flex items-center justify-center flex-shrink-0">
+              <CheckSquare className="w-5 h-5" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-[#1A1916]">
+                Новая задача
+              </h1>
+              <p className="text-xs text-gray-500 font-medium">
+                Один или несколько отчётов и документов за раз
+              </p>
+            </div>
+          </div>
 
         {error && (
           <div className="mb-6 p-4 rounded-xl bg-[#FCE6E3] border border-[#DD6B60]/30 text-sm text-[#C0392B] flex items-start gap-2.5">
@@ -208,7 +209,9 @@ export const TaskNewPage: React.FC = () => {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6 task-compose-form">
+          <div className="task-compose-grid">
+            <div className="task-compose-settings">
           {/* Company selectors and grouping filters */}
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -315,6 +318,8 @@ export const TaskNewPage: React.FC = () => {
             )}
           </div>
 
+            </div>
+            <div className="task-compose-documents">
           {/* Tax Templates Preset Applicator (Item 3 from prompt) */}
           <div className="p-4 rounded-xl bg-[#FAF8F5] border border-[#EAE3D6] space-y-3">
             <div className="flex items-center justify-between">
@@ -539,6 +544,8 @@ export const TaskNewPage: React.FC = () => {
               <span>+ Добавить ещё один документ</span>
             </button>
           </div>
+            </div>
+          </div>
 
           {/* Submit */}
           <div className="pt-4 border-t border-[#EAE3D6] flex items-center justify-end gap-3">
@@ -551,7 +558,7 @@ export const TaskNewPage: React.FC = () => {
             <button
               type="submit"
               disabled={loading}
-              className="px-6 py-2.5 rounded-xl bg-[#4A8C68] text-white text-sm font-bold hover:bg-[#3D7557] transition disabled:opacity-50"
+              className="px-6 py-2.5 rounded-lg bg-[#1E4D3B] text-white text-xs font-bold hover:bg-[#163B2D] transition disabled:opacity-50 shadow-2xs"
             >
               {loading
                 ? 'Создание...'
@@ -561,6 +568,7 @@ export const TaskNewPage: React.FC = () => {
             </button>
           </div>
         </form>
+      </div>
       </div>
     </div>
   );

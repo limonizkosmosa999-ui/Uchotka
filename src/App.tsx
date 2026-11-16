@@ -12,6 +12,7 @@ import { CompanyDetailPage } from './pages/CompanyDetailPage';
 import { CompanyNewPage } from './pages/CompanyNewPage';
 import { TaskNewPage } from './pages/TaskNewPage';
 import { ManagerPage } from './pages/ManagerPage';
+import { ActivityPage } from './pages/ActivityPage';
 import { SettingsPage } from './pages/SettingsPage';
 
 // Protected Route Wrapper
@@ -22,8 +23,8 @@ const ProtectedRoute: React.FC<{
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#FAF8F5] flex items-center justify-center">
-        <div className="w-8 h-8 rounded-full border-2 border-[#5FA07A] border-t-transparent animate-spin" />
+      <div className="min-h-screen bg-[#F4EFEA] flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-2 border-[#1E4D3B] border-t-transparent animate-spin" />
       </div>
     );
   }
@@ -33,9 +34,9 @@ const ProtectedRoute: React.FC<{
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#FAF8F5]">
+    <div className="app-layout min-h-screen bg-[#F4EFEA]">
       <Navbar />
-      <div className="flex-1 pb-16 xl:pb-0">{children}</div>
+      <main className="app-main flex-1 pb-16 xl:pb-0">{children}</main>
       <MobileBottomNav />
     </div>
   );
@@ -47,14 +48,18 @@ const RootRedirect: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#FAF8F5] flex items-center justify-center">
-        <div className="w-8 h-8 rounded-full border-2 border-[#5FA07A] border-t-transparent animate-spin" />
+      <div className="min-h-screen bg-[#F4EFEA] flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-2 border-[#1E4D3B] border-t-transparent animate-spin" />
       </div>
     );
   }
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (user.role === 'manager') {
+    return <Navigate to="/manager" replace />;
   }
 
   return <Navigate to="/dashboard" replace />;
@@ -119,6 +124,18 @@ export function App() {
                 <ManagerPage />
               </ProtectedRoute>
             }
+          />
+          <Route
+            path="/activity"
+            element={
+              <ProtectedRoute>
+                <ActivityPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/manager/activity"
+            element={<Navigate to="/activity" replace />}
           />
           <Route
             path="/settings"

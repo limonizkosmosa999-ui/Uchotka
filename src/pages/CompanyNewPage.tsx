@@ -106,32 +106,33 @@ export const CompanyNewPage: React.FC = () => {
   };
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
-      {/* Back button */}
-      <div className="mb-6">
-        <Link
-          to="/dashboard"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#8C8577] hover:text-[#2B2A25] transition"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Назад</span>
-        </Link>
-      </div>
-
-      <div className="bg-white border border-[#EAE3D6] rounded-[10px] p-6 sm:p-8">
-        <div className="flex items-center gap-3 mb-6 pb-4 border-b border-[#EAE3D6]">
-          <div className="w-10 h-10 rounded-[10px] bg-[#E7F3EB] text-[#5FA07A] flex items-center justify-center">
-            <Building className="w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-[#2B2A25]">
-              Новая компания / Клиент агентства
-            </h1>
-            <p className="text-xs text-[#8C8577]">
-              Добавление компании в реестр обслуживания и настройка налогообложения
-            </p>
-          </div>
+    <div className="w-full min-h-screen bg-[#F4EFEA] px-8 py-7">
+      <div className="max-w-3xl mx-auto">
+        {/* Back button */}
+        <div className="mb-6">
+          <Link
+            to="/dashboard"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-black transition"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Назад</span>
+          </Link>
         </div>
+
+        <div className="bg-white border border-[#EAE5DD] rounded-2xl p-6 sm:p-8 shadow-2xs">
+          <div className="flex items-center gap-3 mb-6 pb-4 border-b border-[#F2ECE3]">
+            <div className="w-10 h-10 rounded-xl bg-[#E2EFE7] text-[#1E4D3B] flex items-center justify-center">
+              <Building className="w-5 h-5" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-[#1A1916]">
+                Новая компания / Клиент агентства
+              </h1>
+              <p className="text-xs text-gray-500 font-medium">
+                Добавление компании в реестр обслуживания и настройка налогообложения
+              </p>
+            </div>
+          </div>
 
         {error && (
           <div className="mb-6 p-3 rounded-[8px] bg-[#FCE6E3] border border-[#DD6B60]/30 text-xs text-[#DD6B60] flex items-center gap-2">
@@ -143,7 +144,7 @@ export const CompanyNewPage: React.FC = () => {
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label className="block text-xs font-semibold text-[#2B2A25] mb-2">
-              Тип клиента (Организационно-правовая форма)
+              Тип клиента
             </label>
             <select
               value={clientType}
@@ -211,7 +212,7 @@ export const CompanyNewPage: React.FC = () => {
 
             <div>
               <label className="block text-xs font-semibold text-[#2B2A25] mb-1">
-                ИНН (14 цифр) *
+                ИНН *
               </label>
               <input
                 type="text"
@@ -284,7 +285,7 @@ export const CompanyNewPage: React.FC = () => {
           {/* Notes */}
           <div>
             <label className="block text-xs font-semibold text-[#2B2A25] mb-1">
-              Особенности ведения учета / Примечания
+              Особенности учёта
             </label>
             <textarea
               rows={3}
@@ -306,12 +307,13 @@ export const CompanyNewPage: React.FC = () => {
             <button
               type="submit"
               disabled={loading}
-              className="px-5 py-2 rounded-[8px] bg-[#5FA07A] text-white text-xs font-semibold hover:bg-[#528E6B] transition disabled:opacity-50"
+              className="px-5 py-2 rounded-lg bg-[#1E4D3B] text-white text-xs font-semibold hover:bg-[#163B2D] transition disabled:opacity-50 shadow-2xs"
             >
               {loading ? 'Сохранение...' : 'Создать компанию'}
             </button>
           </div>
         </form>
+      </div>
       </div>
     </div>
   );
