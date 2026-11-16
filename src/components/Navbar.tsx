@@ -7,7 +7,8 @@ import {
   LogOut,
   Bell,
   X,
-  UserCheck
+  UserCheck,
+  ChevronDown,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -38,6 +39,8 @@ export const Navbar: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [showAddEmployeeModal, setShowAddEmployeeModal] = useState(false);
   const [markingAllRead, setMarkingAllRead] = useState(false);
+  const [employeesOpen, setEmployeesOpen] = useState(true);
+  const [companiesOpen, setCompaniesOpen] = useState(true);
 
   const bellButtonRef = useRef<HTMLButtonElement>(null);
   const notifDropdownRef = useRef<HTMLDivElement>(null);
@@ -259,53 +262,123 @@ export const Navbar: React.FC = () => {
 
           {/* Section: СОТРУДНИКИ (Руководитель) */}
           {isManager ? (
-            <div className="mt-7">
-              <div className="flex items-center justify-between px-3 mb-2">
-                <span className="text-[11px] font-bold text-[#8C8577] tracking-wider uppercase">
-                  СОТРУДНИКИ
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setShowAddEmployeeModal(true)}
-                  className="w-5 h-5 flex items-center justify-center rounded text-gray-500 hover:text-black hover:bg-gray-100 transition"
-                  title="Добавить сотрудника"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              <div className="space-y-0.5">
-                {accountants.map((acc) => {
-                  const activeTasks = getAccountantActiveTaskCount(acc.id);
-                  const isFiltered = location.search.includes(`accountant=${acc.id}`);
-
-                  return (
-                    <Link
-                      key={acc.id}
-                      to={`/dashboard?accountant=${acc.id}`}
-                      className={`flex items-center justify-between px-3 py-1.5 rounded-lg text-xs transition ${
-                        isFiltered
-                          ? 'bg-[#EAE6DF] font-semibold text-[#1A1916]'
-                          : 'text-[#4A463F] hover:bg-[#F6F3EE] hover:text-[#1A1916]'
+            <>
+              {/* Сотрудники */}
+              <div className="mt-6">
+                <div className="flex items-center justify-between px-2 mb-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setEmployeesOpen(!employeesOpen)}
+                    className="flex items-center gap-1 text-[11px] font-bold text-[#8C8577] hover:text-[#1A1916] tracking-wider uppercase transition cursor-pointer select-none"
+                  >
+                    <ChevronDown
+                      className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-150 ${
+                        employeesOpen ? '' : '-rotate-90'
                       }`}
-                      title={acc.email}
-                    >
-                      <span className="truncate">{acc.full_name}</span>
-                      <span className="text-gray-400 text-[11px] ml-1 font-medium">
-                        {activeTasks}
-                      </span>
-                    </Link>
-                  );
-                })}
+                    />
+                    <span>СОТРУДНИКИ</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddEmployeeModal(true)}
+                    className="w-5 h-5 flex items-center justify-center rounded text-gray-500 hover:text-black hover:bg-gray-100 transition"
+                    title="Добавить сотрудника"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                {employeesOpen && (
+                  <div className="space-y-0.5 animate-in fade-in duration-100">
+                    {accountants.map((acc) => {
+                      const activeTasks = getAccountantActiveTaskCount(acc.id);
+                      const isFiltered = location.search.includes(`accountant=${acc.id}`);
+
+                      return (
+                        <Link
+                          key={acc.id}
+                          to={`/dashboard?accountant=${acc.id}`}
+                          className={`flex items-center justify-between px-3 py-1.5 rounded-lg text-xs transition ${
+                            isFiltered
+                              ? 'bg-[#EAE6DF] font-semibold text-[#1A1916]'
+                              : 'text-[#4A463F] hover:bg-[#F6F3EE] hover:text-[#1A1916]'
+                          }`}
+                          title={acc.email}
+                        >
+                          <span className="truncate">{acc.full_name}</span>
+                          <span className="text-gray-400 text-[11px] ml-1 font-medium">
+                            {activeTasks}
+                          </span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            </div>
+
+              {/* Компании */}
+              <div className="mt-5">
+                <div className="flex items-center justify-between px-2 mb-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setCompaniesOpen(!companiesOpen)}
+                    className="flex items-center gap-1 text-[11px] font-bold text-[#8C8577] hover:text-[#1A1916] tracking-wider uppercase transition cursor-pointer select-none"
+                  >
+                    <ChevronDown
+                      className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-150 ${
+                        companiesOpen ? '' : '-rotate-90'
+                      }`}
+                    />
+                    <span>КОМПАНИИ</span>
+                  </button>
+                  <Link
+                    to="/companies/new"
+                    className="w-5 h-5 flex items-center justify-center rounded text-gray-500 hover:text-black hover:bg-gray-100 transition"
+                    title="Добавить компанию"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+
+                {companiesOpen && (
+                  <div className="space-y-0.5 max-h-56 overflow-y-auto animate-in fade-in duration-100">
+                    {companies.map((comp) => {
+                      const isSelected = location.pathname === `/companies/${comp.id}`;
+                      return (
+                        <Link
+                          key={comp.id}
+                          to={`/companies/${comp.id}`}
+                          className={`flex items-center justify-between px-3 py-1.5 rounded-lg text-xs transition ${
+                            isSelected
+                              ? 'bg-[#EAE6DF] font-semibold text-[#1A1916]'
+                              : 'text-[#4A463F] hover:bg-[#F6F3EE] hover:text-[#1A1916]'
+                          }`}
+                          title={comp.name}
+                        >
+                          <span className="truncate">{comp.name}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </>
           ) : (
             /* Section: КЛИЕНТЫ (Бухгалтер) */
-            <div className="mt-7">
-              <div className="flex items-center justify-between px-3 mb-2">
-                <span className="text-[11px] font-bold text-[#8C8577] tracking-wider uppercase">
-                  КЛИЕНТЫ
-                </span>
+            <div className="mt-6">
+              <div className="flex items-center justify-between px-2 mb-1.5">
+                <button
+                  type="button"
+                  onClick={() => setCompaniesOpen(!companiesOpen)}
+                  className="flex items-center gap-1 text-[11px] font-bold text-[#8C8577] hover:text-[#1A1916] tracking-wider uppercase transition cursor-pointer select-none"
+                >
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-150 ${
+                      companiesOpen ? '' : '-rotate-90'
+                    }`}
+                  />
+                  <span>КЛИЕНТЫ</span>
+                </button>
                 <Link
                   to="/companies/new"
                   className="w-5 h-5 flex items-center justify-center rounded text-gray-500 hover:text-black hover:bg-gray-100 transition"
@@ -315,18 +388,20 @@ export const Navbar: React.FC = () => {
                 </Link>
               </div>
 
-              <div className="space-y-0.5 max-h-56 overflow-y-auto">
-                {companies.map((comp) => (
-                  <Link
-                    key={comp.id}
-                    to={`/companies/${comp.id}`}
-                    className="flex items-center justify-between px-3 py-1.5 rounded-lg text-xs text-[#4A463F] hover:bg-[#F6F3EE] hover:text-[#1A1916] transition"
-                    title={comp.name}
-                  >
-                    <span className="truncate">{comp.name}</span>
-                  </Link>
-                ))}
-              </div>
+              {companiesOpen && (
+                <div className="space-y-0.5 max-h-56 overflow-y-auto animate-in fade-in duration-100">
+                  {companies.map((comp) => (
+                    <Link
+                      key={comp.id}
+                      to={`/companies/${comp.id}`}
+                      className="flex items-center justify-between px-3 py-1.5 rounded-lg text-xs text-[#4A463F] hover:bg-[#F6F3EE] hover:text-[#1A1916] transition"
+                      title={comp.name}
+                    >
+                      <span className="truncate">{comp.name}</span>
+                    </Link>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

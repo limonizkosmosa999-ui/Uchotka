@@ -899,6 +899,12 @@ export async function updateTask(
     }`;
     const escalationNotifications = users
       .filter((candidate) => candidate.role === 'manager')
+      .filter((manager) => {
+        // Prevent duplicate notification for same task and manager
+        return !notifications.some(
+          (existing) => existing.task_id === tasks[idx].id && existing.user_id === manager.id
+        );
+      })
       .map((manager) => ({
         id: `notification-escalation-${tasks[idx].id}-${manager.id}-${Date.now()}`,
         user_id: manager.id,
@@ -907,11 +913,13 @@ export async function updateTask(
         is_read: false,
         created_at: new Date().toISOString(),
       }));
-    notifications.unshift(...escalationNotifications);
-    localStorage.setItem(LS_NOTIFICATIONS, JSON.stringify(notifications));
-    escalationNotifications.forEach((notification) =>
-      emitMockRealtimeEvent('notifications', 'INSERT', notification)
-    );
+    if (escalationNotifications.length > 0) {
+      notifications.unshift(...escalationNotifications);
+      localStorage.setItem(LS_NOTIFICATIONS, JSON.stringify(notifications));
+      escalationNotifications.forEach((notification) =>
+        emitMockRealtimeEvent('notifications', 'INSERT', notification)
+      );
+    }
   }
 
   recordMockActivity(
@@ -1003,6 +1011,8 @@ export async function deleteTask(id: string): Promise<void> {
 // -------------------------------------------------------------
 
 export async function getNotifications(userId: string): Promise<AppNotification[]> {
+  let list: AppNotification[] = [];
+
   if (isSupabaseConfigured) {
     const { data, error } = await supabase
       .from('notifications')
@@ -1011,14 +1021,23 @@ export async function getNotifications(userId: string): Promise<AppNotification[
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    return data || [];
+    list = data || [];
+  } else {
+    // Mock
+    const notifs: AppNotification[] = JSON.parse(localStorage.getItem(LS_NOTIFICATIONS) || '[]');
+    list = notifs
+      .filter((n) => n.user_id === userId)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   }
 
-  // Mock
-  const notifs: AppNotification[] = JSON.parse(localStorage.getItem(LS_NOTIFICATIONS) || '[]');
-  return notifs
-    .filter((n) => n.user_id === userId)
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  // Deduplicate notifications by task_id + message so duplicates never appear
+  const seen = new Set<string>();
+  return list.filter((n) => {
+    const key = n.task_id ? `${n.task_id}_${n.message}` : n.id;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 export async function markNotificationRead(id: string): Promise<void> {

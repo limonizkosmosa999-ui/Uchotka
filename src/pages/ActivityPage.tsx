@@ -134,7 +134,10 @@ export const ActivityPage: React.FC = () => {
     const hours = String(d.getHours()).padStart(2, '0');
     const minutes = String(d.getMinutes()).padStart(2, '0');
     const seconds = String(d.getSeconds()).padStart(2, '0');
-    return `${day}.${month}.${year} ${hours}:${minutes}:${seconds}`;
+    return {
+      date: `${day}.${month}.${year}`,
+      time: `${hours}:${minutes}:${seconds}`,
+    };
   };
 
   const getActionBadge = (actionType: ActivityActionType) => {
@@ -237,14 +240,14 @@ export const ActivityPage: React.FC = () => {
         {/* Left Column: Events Table Card */}
         <div className="flex-1 w-full bg-white rounded-2xl border border-[#EAE5DD] shadow-2xs overflow-hidden min-w-0">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left border-collapse table-fixed min-w-[720px]">
               <thead>
-                <tr className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider border-b border-[#F2ECE3]">
-                  <th className="py-3.5 px-5">ВРЕМЯ</th>
-                  <th className="py-3.5 px-4">КТО</th>
-                  <th className="py-3.5 px-4">ДЕЙСТВИЕ</th>
-                  <th className="py-3.5 px-4">КЛИЕНТ</th>
-                  <th className="py-3.5 px-5">ОПИСАНИЕ</th>
+                <tr className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider border-b border-[#F2ECE3] bg-[#FAF8F5]/60">
+                  <th className="py-3 px-4 w-[115px]">ВРЕМЯ</th>
+                  <th className="py-3 px-4 w-[110px]">КТО</th>
+                  <th className="py-3 px-4 w-[145px]">ДЕЙСТВИЕ</th>
+                  <th className="py-3 px-4 w-[130px]">КЛИЕНТ</th>
+                  <th className="py-3 px-5">ОПИСАНИЕ</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#F6F2EC]">
@@ -255,34 +258,48 @@ export const ActivityPage: React.FC = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredLogs.map((log) => (
-                    <tr key={log.id} className="text-xs hover:bg-[#FAF8F5] transition">
-                      {/* Время */}
-                      <td className="py-3.5 px-5 text-gray-400 font-mono text-[11px] whitespace-nowrap">
-                        {formatTimestamp(log.created_at)}
-                      </td>
+                  filteredLogs.map((log) => {
+                    const ts = formatTimestamp(log.created_at);
+                    return (
+                      <tr key={log.id} className="text-xs hover:bg-[#FAF8F5] transition">
+                        {/* Время (дата сверху, время снизу) */}
+                        <td className="py-3 px-4 align-top whitespace-nowrap">
+                          <div className="font-mono text-[11px] font-semibold text-[#1A1916] leading-tight">
+                            {ts.date}
+                          </div>
+                          <div className="font-mono text-[10px] text-gray-400 mt-0.5 leading-tight">
+                            {ts.time}
+                          </div>
+                        </td>
 
-                      {/* Кто */}
-                      <td className="py-3.5 px-4 font-bold text-[#1A1916] whitespace-nowrap">
-                        {log.user_name || 'Система'}
-                      </td>
+                        {/* Кто */}
+                        <td className="py-3 px-4 align-top">
+                          <div className="font-semibold text-xs text-[#1A1916] leading-tight truncate" title={log.user_name || 'Система'}>
+                            {log.user_name || 'Система'}
+                          </div>
+                        </td>
 
-                      {/* Действие */}
-                      <td className="py-3.5 px-4">
-                        {getActionBadge(log.action_type)}
-                      </td>
+                        {/* Действие */}
+                        <td className="py-3 px-4 align-top whitespace-nowrap">
+                          {getActionBadge(log.action_type)}
+                        </td>
 
-                      {/* Клиент */}
-                      <td className="py-3.5 px-4 font-medium text-gray-700 whitespace-nowrap">
-                        {log.company_name || '—'}
-                      </td>
+                        {/* Клиент */}
+                        <td className="py-3 px-4 align-top">
+                          <div className="font-medium text-xs text-gray-700 leading-tight truncate" title={log.company_name || ''}>
+                            {log.company_name || '—'}
+                          </div>
+                        </td>
 
-                      {/* Описание */}
-                      <td className="py-3.5 px-5 text-[#1A1916] leading-relaxed">
-                        {log.description}
-                      </td>
-                    </tr>
-                  ))
+                        {/* Описание */}
+                        <td className="py-3 px-5 align-top">
+                          <div className="text-xs text-[#1A1916] leading-relaxed break-words">
+                            {log.description}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -386,19 +403,11 @@ export const ActivityPage: React.FC = () => {
           </div>
 
           {/* Bottom Actions */}
-          <div className="pt-2 space-y-2">
-            <button
-              type="button"
-              onClick={handleExportCsv}
-              className="w-full bg-[#1E4D3B] hover:bg-[#163B2D] text-white py-3 rounded-lg text-xs font-bold transition shadow-2xs flex items-center justify-center gap-2"
-            >
-              <span>Выгрузить CSV для проверки</span>
-            </button>
-
+          <div className="pt-1">
             <button
               type="button"
               onClick={handleResetFilters}
-              className="w-full text-center text-xs text-gray-500 hover:text-black py-1 transition cursor-pointer"
+              className="w-full text-center text-xs font-semibold text-gray-500 hover:text-black py-2 rounded-lg hover:bg-[#EAE5DD]/50 transition cursor-pointer"
             >
               Сбросить фильтры
             </button>
