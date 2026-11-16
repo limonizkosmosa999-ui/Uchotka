@@ -163,18 +163,7 @@ export const LoginPage: React.FC = () => {
                     </div>
                   ))}
                 </div>
-                    >
-                      <div>
-                        <span className="text-xs font-bold text-[#4A8C68] block">
-                          🧾 Бухгалтер — {acc.name}
-                        </span>
-                        <code className="text-sm text-[#1E1D19] font-medium">{acc.email}</code>
-                        <span className="text-sm text-[#6B6558] ml-2">/ demo1234</span>
-                      </div>
-                      <ArrowRight className="w-4 h-4 text-[#4A8C68] opacity-0 group-hover:opacity-100 transition" />
-                    </div>
-                  ))}
-                </div>
+                    
               </div>
             )}
           </div>

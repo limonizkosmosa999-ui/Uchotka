@@ -56,6 +56,15 @@ export default {
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
       },
+      spacing: {
+        '4.5': '1.125rem',
+        '5.5': '1.375rem',
+        '3.5': '0.875rem',
+      },
+      boxShadow: {
+        'xs':  '0 1px 2px 0 rgb(0 0 0 / 0.05)',
+        '2xs': '0 1px 1px 0 rgb(0 0 0 / 0.04)',
+      },
     },
   },
   plugins: [],
