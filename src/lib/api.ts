@@ -1075,125 +1075,116 @@ export async function markAllNotificationsRead(userId: string): Promise<void> {
 
 export function subscribeToTasks(onUpdate: (payload: any) => void): () => void {
   if (isSupabaseConfigured) {
-    const channel = supabase
-      .channel('public:tasks')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'tasks' },
-        (payload) => {
-          onUpdate(payload);
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    try {
+      const channelName = `public:tasks:${Math.random().toString(36).slice(2)}`;
+      const channel = supabase
+        .channel(channelName)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'tasks' },
+          (payload) => { onUpdate(payload); }
+        )
+        .subscribe();
+      return () => { supabase.removeChannel(channel); };
+    } catch (err) {
+      console.warn('subscribeToTasks: Supabase realtime error, falling back to mock', err);
+    }
   }
 
-  // Mock listener
+  // Mock / fallback listener
   const handler = (e: any) => {
     const custom = e as CustomEvent;
-    if (custom.detail.table === 'tasks') {
-      onUpdate(custom.detail);
-    }
+    if (custom.detail?.table === 'tasks') onUpdate(custom.detail);
   };
   realtimeEmitter.addEventListener('uchotka-realtime', handler);
-  return () => {
-    realtimeEmitter.removeEventListener('uchotka-realtime', handler);
-  };
+  return () => { realtimeEmitter.removeEventListener('uchotka-realtime', handler); };
 }
 
 export function subscribeToNotifications(userId: string, onUpdate: () => void): () => void {
   if (isSupabaseConfigured) {
-    const channel = supabase
-      .channel(`notifications:${userId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${userId}`,
-        },
-        onUpdate
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    try {
+      const channelName = `notifications:${userId}:${Math.random().toString(36).slice(2)}`;
+      const channel = supabase
+        .channel(channelName)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
+          onUpdate
+        )
+        .subscribe();
+      return () => { supabase.removeChannel(channel); };
+    } catch (err) {
+      console.warn('subscribeToNotifications: Supabase realtime error, falling back to mock', err);
+    }
   }
 
   const handler = (e: Event) => {
     const custom = e as CustomEvent;
-    if (custom.detail.table === 'notifications' && custom.detail.record.user_id === userId) {
+    if (custom.detail?.table === 'notifications' && custom.detail.record?.user_id === userId) {
       onUpdate();
     }
   };
   realtimeEmitter.addEventListener('uchotka-realtime', handler);
-  return () => {
-    realtimeEmitter.removeEventListener('uchotka-realtime', handler);
-  };
+  return () => { realtimeEmitter.removeEventListener('uchotka-realtime', handler); };
 }
 
 export function subscribeToActivityLogs(onUpdate: () => void, companyId?: string): () => void {
   if (isSupabaseConfigured) {
-    const channel = supabase
-      .channel(companyId ? `activity-logs:${companyId}` : 'activity-logs')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'activity_logs',
-          ...(companyId ? { filter: `company_id=eq.${companyId}` } : {}),
-        },
-        onUpdate
-      );
-    channel.subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    try {
+      const baseName = companyId ? `activity-logs:${companyId}` : 'activity-logs';
+      const channelName = `${baseName}:${Math.random().toString(36).slice(2)}`;
+      const channel = supabase
+        .channel(channelName)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'activity_logs',
+            ...(companyId ? { filter: `company_id=eq.${companyId}` } : {}),
+          },
+          onUpdate
+        )
+        .subscribe();
+      return () => { supabase.removeChannel(channel); };
+    } catch (err) {
+      console.warn('subscribeToActivityLogs: Supabase realtime error, falling back to mock', err);
+    }
   }
 
   const handler = (e: Event) => {
     const custom = e as CustomEvent;
     if (
-      custom.detail.table === 'activity_logs'
-      && (!companyId || custom.detail.record.company_id === companyId)
+      custom.detail?.table === 'activity_logs' &&
+      (!companyId || custom.detail.record?.company_id === companyId)
     ) {
       onUpdate();
     }
   };
   realtimeEmitter.addEventListener('uchotka-realtime', handler);
-  return () => {
-    realtimeEmitter.removeEventListener('uchotka-realtime', handler);
-  };
+  return () => { realtimeEmitter.removeEventListener('uchotka-realtime', handler); };
 }
 
 export function subscribeToRealtimeAny(onUpdate: (table: string, eventType: string, record: any) => void): () => void {
   if (isSupabaseConfigured) {
-    const channel = supabase
-      .channel('schema-db-changes')
-      .on('postgres_changes', { event: '*', schema: 'public' }, (payload) => {
-        onUpdate(payload.table, payload.eventType, payload.new || payload.old);
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    try {
+      const channelName = `schema-db-changes:${Math.random().toString(36).slice(2)}`;
+      const channel = supabase
+        .channel(channelName)
+        .on('postgres_changes', { event: '*', schema: 'public' }, (payload) => {
+          onUpdate(payload.table, payload.eventType, payload.new || payload.old);
+        })
+        .subscribe();
+      return () => { supabase.removeChannel(channel); };
+    } catch (err) {
+      console.warn('subscribeToRealtimeAny: Supabase realtime error, falling back to mock', err);
+    }
   }
 
-  // Mock listener
   const handler = (e: any) => {
     const custom = e as CustomEvent;
-    onUpdate(custom.detail.table, custom.detail.eventType, custom.detail.record);
+    onUpdate(custom.detail?.table, custom.detail?.eventType, custom.detail?.record);
   };
   realtimeEmitter.addEventListener('uchotka-realtime', handler);
-  return () => {
-    realtimeEmitter.removeEventListener('uchotka-realtime', handler);
-  };
+  return () => { realtimeEmitter.removeEventListener('uchotka-realtime', handler); };
 }

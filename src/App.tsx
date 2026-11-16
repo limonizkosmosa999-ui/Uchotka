@@ -15,6 +15,43 @@ import { ManagerPage } from './pages/ManagerPage';
 import { ActivityPage } from './pages/ActivityPage';
 import { SettingsPage } from './pages/SettingsPage';
 
+// Global Error Boundary — prevents any uncaught error from showing blank white page
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error('App ErrorBoundary caught:', error, info);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-[#F4EFEA] flex flex-col items-center justify-center p-8 text-center">
+          <div className="w-12 h-12 rounded-xl bg-black text-white flex items-center justify-center font-bold text-xl mb-4">✓</div>
+          <h1 className="text-xl font-bold text-[#1A1916] mb-2">Произошла ошибка</h1>
+          <p className="text-sm text-gray-500 mb-4 max-w-sm">
+            {this.state.error?.message || 'Неизвестная ошибка'}
+          </p>
+          <button
+            onClick={() => { this.setState({ hasError: false, error: null }); window.location.reload(); }}
+            className="px-4 py-2 bg-[#1E4D3B] text-white text-sm rounded-lg hover:bg-[#163B2D] transition"
+          >
+            Перезагрузить страницу
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // Protected Route Wrapper
 const ProtectedRoute: React.FC<{
   children: React.ReactNode;
@@ -67,8 +104,9 @@ const RootRedirect: React.FC = () => {
 
 export function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
+    <ErrorBoundary>
+      <AuthProvider>
+        <BrowserRouter>
         <Routes>
           {/* Public Login Route */}
           <Route path="/login" element={<LoginPage />} />
@@ -167,6 +205,7 @@ export function App() {
         </Routes>
       </BrowserRouter>
     </AuthProvider>
+    </ErrorBoundary>
   );
 }
 
