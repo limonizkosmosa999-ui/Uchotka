@@ -167,9 +167,7 @@ export async function registerWithEmail(
     if (error) throw error;
     if (!data.user) throw new Error('Ошибка регистрации');
     if (!data.session) {
-      throw new Error(
-        'Регистрация не завершила вход: Supabase ожидает подтверждение email. Для тестового приложения отключите Confirm email в настройках Authentication → Providers → Email проекта Supabase, затем повторите регистрацию.'
-      );
+      throw new Error('Сообщение придет на почту');
     }
 
     const { data: savedProfile, error: profileError } = await supabase

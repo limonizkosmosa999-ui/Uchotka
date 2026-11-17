@@ -27,6 +27,16 @@ function getAuthErrorMessage(error: unknown): string {
     return 'Supabase временно ограничил отправку писем. Не отправляйте повторные запросы подряд. Если аккаунт уже создан, переключитесь на «Вход»; иначе подождите и проверьте настройки лимитов или SMTP в панели Supabase.';
   }
 
+  if (
+    normalizedMessage.includes('сообщение придет на почту') ||
+    normalizedMessage.includes('подтверждение email') ||
+    normalizedMessage.includes('confirm email') ||
+    normalizedMessage.includes('email confirmation') ||
+    normalizedMessage.includes('signup confirmation')
+  ) {
+    return 'Сообщение придет на почту';
+  }
+
   return message || 'Ошибка. Проверьте введённые данные.';
 }
 
@@ -200,8 +210,15 @@ export const LoginPage: React.FC = () => {
           </div>
 
           {error && (
-            <div className="mb-5 p-3.5 rounded-xl bg-[#FCE6E3] border border-[#DD6B60]/30 text-sm text-[#C0392B] leading-snug">
-              {error}
+            <div
+              className={`mb-5 p-3.5 rounded-xl border text-sm leading-snug flex items-center gap-2.5 ${
+                error.includes('почту')
+                  ? 'bg-[#E2EFE7] border-[#1E4D3B]/30 text-[#1E4D3B] font-medium'
+                  : 'bg-[#FCE6E3] border-[#DD6B60]/30 text-[#C0392B]'
+              }`}
+            >
+              {error.includes('почту') && <Mail className="w-4 h-4 flex-shrink-0 text-[#1E4D3B]" />}
+              <span>{error}</span>
             </div>
           )}
 
