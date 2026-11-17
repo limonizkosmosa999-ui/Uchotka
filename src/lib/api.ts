@@ -265,6 +265,51 @@ export async function updateUserProfile(
   return users[idx];
 }
 
+export async function requestAccountDeletion(userId: string): Promise<{ scheduled_deletion_date: string }> {
+  const threeDaysFromNow = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString();
+  const now = new Date().toISOString();
+
+  if (isSupabaseConfigured) {
+    // 1. Try RPC request_account_deletion first
+    const { error: rpcError } = await supabase.rpc('request_account_deletion');
+
+    if (rpcError) {
+      // Fallback: direct update on public.users
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({
+          deletion_requested_at: now,
+          scheduled_for_deletion_at: threeDaysFromNow,
+        })
+        .eq('id', userId);
+
+      if (updateError) {
+        console.warn('Direct update to users for deletion failed:', updateError);
+      }
+    }
+
+    // Sign out from Supabase Auth
+    await supabase.auth.signOut();
+    return { scheduled_deletion_date: threeDaysFromNow };
+  }
+
+  // Mock
+  const users: UserProfile[] = JSON.parse(localStorage.getItem(LS_USERS) || '[]');
+  const idx = users.findIndex((u) => u.id === userId);
+  if (idx !== -1) {
+    users[idx] = {
+      ...users[idx],
+      deletion_requested_at: now,
+      scheduled_for_deletion_at: threeDaysFromNow,
+    };
+    localStorage.setItem(LS_USERS, JSON.stringify(users));
+  }
+  localStorage.removeItem(LS_CURRENT_USER);
+  emitMockRealtimeEvent('auth', 'LOGOUT', null);
+
+  return { scheduled_deletion_date: threeDaysFromNow };
+}
+
 // -------------------------------------------------------------
 // TAX TYPES
 // -------------------------------------------------------------

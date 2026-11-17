@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Building2,
   Lock,
@@ -11,6 +11,7 @@ import {
   EyeOff,
   ChevronDown,
   ChevronUp,
+  CheckCircle2,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -32,6 +33,8 @@ function getAuthErrorMessage(error: unknown): string {
 export const LoginPage: React.FC = () => {
   const { login, register, isConfigured, configurationError } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const deletionNotice = (location.state as any)?.deletionNotice;
 
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
@@ -80,6 +83,13 @@ export const LoginPage: React.FC = () => {
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md space-y-4">
+        {deletionNotice && (
+          <div className="bg-[#E2EFE7] border border-[#1E4D3B]/30 rounded-2xl p-4 text-xs font-semibold text-[#1E4D3B] flex items-start gap-2.5 shadow-2xs">
+            <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5 text-[#1E4D3B]" />
+            <p className="leading-relaxed">{deletionNotice}</p>
+          </div>
+        )}
+
         {/* Demo credentials hint */}
         {configurationError && (
           <div

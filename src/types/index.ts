@@ -9,6 +9,8 @@ export interface UserProfile {
   phone?: string | null;
   telegram_handle?: string | null;
   created_at?: string;
+  deletion_requested_at?: string | null;
+  scheduled_for_deletion_at?: string | null;
 }
 
 export interface TaxType {

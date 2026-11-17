@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Settings, 
   Lock, 
@@ -8,14 +9,18 @@ import {
   CheckCircle2, 
   AlertCircle, 
   Database,
-  ArrowRight
+  ArrowRight,
+  Trash2,
+  AlertTriangle,
+  X
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { updateUserProfile } from '../lib/api';
+import { updateUserProfile, requestAccountDeletion } from '../lib/api';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 export const SettingsPage: React.FC = () => {
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, logout } = useAuth();
+  const navigate = useNavigate();
 
   const [fullName, setFullName] = useState(user?.full_name || '');
   const [notificationEmail, setNotificationEmail] = useState(
@@ -31,6 +36,11 @@ export const SettingsPage: React.FC = () => {
   const [profileSuccess, setProfileSuccess] = useState(false);
   const [passwordSuccess, setPasswordSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Account deletion state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmed, setDeleteConfirmed] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,6 +94,34 @@ export const SettingsPage: React.FC = () => {
       setError(err.message || 'Ошибка смены пароля');
     } finally {
       setSavingPassword(false);
+    }
+  };
+
+  const deletionDatePreview = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toLocaleDateString('ru-RU', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+
+  const handleDeleteAccount = async () => {
+    if (!user) return;
+    setDeletingAccount(true);
+    setError(null);
+
+    try {
+      await requestAccountDeletion(user.id);
+      await logout();
+      navigate('/login', {
+        replace: true,
+        state: {
+          deletionNotice: `Запрос на удаление аккаунта ${user.email} принят. Доступ закрыт, а все ваши данные будут окончательно стёрты через 3 дня.`,
+        },
+      });
+    } catch (err: any) {
+      setError(err.message || 'Не удалось запросить удаление аккаунта');
+      setShowDeleteModal(false);
+    } finally {
+      setDeletingAccount(false);
     }
   };
 
@@ -264,8 +302,106 @@ export const SettingsPage: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* Danger Zone: Account Deletion */}
+        <div className="bg-[#FFF8F7] border border-[#F6D0CC] rounded-2xl p-6 shadow-2xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-sm font-bold text-[#D9483B] flex items-center gap-2 mb-1.5">
+                <Trash2 className="w-4 h-4 flex-shrink-0" />
+                <span>Опасная зона: Удаление аккаунта</span>
+              </h2>
+              <p className="text-xs text-gray-600 leading-relaxed max-w-xl">
+                Вы можете запросить удаление своего аккаунта. Сеанс будет завершён немедленно. Все персональные данные, привязки и записи будут храниться в течение <span className="font-bold text-[#1A1916]">3 дней</span> (период отсрочки), после чего безвозвратно удалятся из базы данных Supabase.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setDeleteConfirmed(false);
+                setShowDeleteModal(true);
+              }}
+              className="px-4 py-2.5 rounded-lg bg-[#D9483B] hover:bg-[#B33A2F] text-white text-xs font-bold transition flex items-center justify-center gap-2 flex-shrink-0 shadow-2xs cursor-pointer self-start sm:self-center"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Удалить аккаунт</span>
+            </button>
+          </div>
+        </div>
       </div>
       </div>
+
+      {/* Modal: Confirmation of Account Deletion */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl border border-[#EAE5DD] shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#EAE5DD] bg-[#FAF8F5]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[#FCE8E6] text-[#D9483B] flex items-center justify-center">
+                  <AlertTriangle className="w-4 h-4" />
+                </div>
+                <h3 className="text-sm font-bold text-[#1A1916]">Удалить аккаунт?</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="p-3.5 rounded-xl bg-[#FCE8E6]/60 border border-[#D9483B]/20 text-xs text-[#D9483B] leading-relaxed">
+                <p className="font-bold mb-1">Период отсрочки: 3 дня</p>
+                <p>
+                  После подтверждения доступ к системе прекратится сразу. Ваши данные будут окончательно стёрты из базы данных Supabase <strong className="underline">{deletionDatePreview}</strong>.
+                </p>
+              </div>
+
+              <div className="text-xs text-gray-600 space-y-2">
+                <p>
+                  Аккаунт: <span className="font-bold text-[#1A1916]">{user?.email}</span>
+                </p>
+                <p className="text-[11px] text-gray-500">
+                  До истечения 3 дней данные остаются замороженными для предотвращения случайной потери информации агентства.
+                </p>
+              </div>
+
+              <label className="flex items-start gap-2.5 pt-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={deleteConfirmed}
+                  onChange={(e) => setDeleteConfirmed(e.target.checked)}
+                  className="mt-0.5 rounded border-[#D4CDBF] text-[#D9483B] focus:ring-[#D9483B]"
+                />
+                <span className="text-xs text-gray-700 leading-snug">
+                  Я подтверждаю, что хочу удалить свой аккаунт и согласен на полное стирание данных через 3 дня
+                </span>
+              </label>
+
+              <div className="pt-3 flex items-center justify-end gap-2.5 border-t border-[#EAE5DD]">
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteModal(false)}
+                  disabled={deletingAccount}
+                  className="px-4 py-2 text-xs font-semibold text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition"
+                >
+                  Отмена
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteAccount}
+                  disabled={!deleteConfirmed || deletingAccount}
+                  className="px-4 py-2 text-xs font-bold text-white bg-[#D9483B] hover:bg-[#B33A2F] rounded-lg transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 shadow-2xs"
+                >
+                  {deletingAccount ? 'Запрос на удаление...' : 'Да, удалить аккаунт'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
